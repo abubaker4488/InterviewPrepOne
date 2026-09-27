@@ -1,0 +1,93 @@
+https://www.hackerrank.com/challenges/java-string-reverse
+
+public static void main(String[] args) {
+        
+        Scanner sc=new Scanner(System.in);
+        String A=sc.next();
+        /* Enter your code here. Print output to STDOUT. */
+        char rev[] = A.toCharArray();
+        String revString = "";
+        
+        for(int i = rev.length - 1 ; i >= 0; i--){
+             revString += rev[i]; // "" + m, 
+        }
+        
+        
+        if(A.equals(revString)){
+            System.out.println("Yes");
+        } else {
+        System.out.println("No");
+        }
+    }
+
+-----------------------------------
+
+https://www.hackerrank.com/challenges/java-anagrams/problem
+
+static boolean isAnagram(String a, String b) {
+        // Complete the function
+        
+        a = a.toLowerCase();
+        b = b.toLowerCase();
+        
+        if(a.length() != b.length()){
+            return false;
+        }
+        
+        char freq[] = new char[26];
+        
+        for(char c: a.toCharArray()){
+            freq[c - 'a']++;
+        }
+        
+        for(char c: b.toCharArray()){
+            freq[c - 'a']--;
+        }
+        
+        for(int count: freq){
+            
+            if(count != 0){
+                return false;
+            }
+        }
+        
+        
+        return true;
+        
+    }
+
+------------------------------------------------
+
+https://www.hackerrank.com/challenges/java-string-tokens/problem
+
+    public static void main(String[] args) {
+        Scanner scan = new Scanner(System.in);
+        String s = scan.nextLine();
+        // Write your code here.
+        
+        s = s.trim();
+       
+        String tokens[] = s.split("[^A-Za-z]+");
+        
+        int count = 0;
+        
+        for(String token : tokens){
+            if(!token.isEmpty()){
+                count++;
+            }
+        }
+        
+        System.out.println(count);
+        
+        for(String token: tokens){
+            if(!token.isEmpty()){
+                System.out.println(token);
+            }
+        }
+        
+        
+
+        scan.close();
+    }
+
+---------------------------------------------

@@ -1,0 +1,668 @@
+ 📝 INTERVIEW QUESTION BANK: ANSWER USING YOUR LUMEN EXPERIENCE
+
+C
+
+  ---
+  SECTION 2: SAP-BRIM ERP TRANSFORMATION
+
+  (Consolidated 3 upstream input services into single source of truth)
+
+  Q: "Describe a time you led an integration effort with a major ERP system (like SAP). What challenges did you face?"
+  A (STAR):
+  - S: Lumen was migrating from 3 legacy input systems (CRM, Order Management, Provisioning) to SAP-BRIM as the single source of
+  truth for customer billing data. The existing MBS billing database had fragile point-to-point integrations causing data
+  inconsistencies during peak billing cycles.
+  - T: I owned the development of the inbound API layer to consume, validate, map, and persist SAP-BRIM data into MBS, ensuring zero
+  data loss during cutover.
+  - A:
+    - Designed a canonical data model (CustomerBillingProfile, ProductSubscription, PriceElement) decoupled from SAP's IDoc
+  structure.
+    - Built Spring Boot REST API (/api/v1/sap-brim/inbound) to accept SAP IDoc XML payloads via HTTPS.
+    - Implemented two-phase validation:
+        i. Syntactic (XSD schema validation against SAP IDoc standards).
+      ii. Semantic (business rules: e.g., "subscription start date cannot be in past").
+
+    - Used MapStruct for efficient, type-safe mapping between SAP IDoc DTOs and canonical model.
+    - Persisted changes via Spring Data JPA with @Transactional to ensure atomicity (all-or-nothing per customer IDoc).
+    - Added dead-letter queue (Kafka topic sap-brim.failed.idocs) for manual replay after fixing SAP-side issues.
+    - Wrote comprehensive contracts (Swagger/OpenAPI) and integration tests (using WireMock for SAP simulator).
+
+  - R: Migration went live with <0.1% defect rate (vs. historical 5%+ for similar cuts). Reduced data reconciliation effort by 70%.
+  Enabled real-time billing updates (previously nightly batch).
+
+  Technical Follow-Ups:
+  Q: "How did you handle data mapping between SAP IDocs and your internal model?"
+  A:
+  - Used MapStruct for compile-time-safe, high-performance mapping. Avoided manual mapping (error-prone, hard to maintain) or Dozer
+  (runtime reflection overhead).
+  - Created IDoc-specific DTOs matching SAP's XML structure (generated from SAP-provided XSDs via JAXB).
+  - MapStruct interfaces defined bidirectional mappings where needed (e.g., for delta updates).
+  - Code Snippet (Mapper):
+  @Mapper(componentModel = "spring", uses = {JsonNullableModule.class}) // Handles SAP's nullable fields
+  public interface SapIdocToCanonicalMapper {
+
+      SapIdocToCanonicalMapper INSTANCE = Mappers.getMapper(SapIdocToCanonicalMapper.class);
+
+      @Mapping(target = "subscriptionStartDate", source = "E1KTMLL.EFTVJ", dateFormat = "yyyyMMdd")
+      @Mapping(target = "productCode", source = "E1KTMLL.MATNR")
+      CustomerBillingProfile mapIdocToProfile(IdocE1KTMLL sapIdocSegment);
+
+      // Handle collections: SAP repeats segments (E1KTMLL) for multiple subscriptions
+      @Mapping(target = "subscriptions", source = "E1KTMLL")
+      List<ProductSubscription> mapIdocSegmentListToSubscriptions(List<IdocE1KTMLL> sapSegments);
+  }
+  Key Points to Mention: MapStruct generated implementation classes at build time (zero runtime reflection overhead); used
+  JsonNullable to distinguish SAP's explicit null vs. missing field; validated mapping logic with 200+ unit tests covering edge cases
+  (empty segments, invalid dates).
+
+  Q: "How did you ensure data consistency during the SAP cutover?"
+  A:
+  - Implemented a dual-write phase for 2 weeks pre-cutover:
+    - Legacy systems continued writing to MBS via old APIs.
+    - SAP-BRIM also wrote to MBS via our new inbound API.
+    - We ran a reconciliation job (every 15 mins) comparing:
+  -- Legacy vs. SAP write counts for same customer/product/time window
+  SELECT legacy.customer_id, sap.customer_id,
+         COUNT(*) AS legacy_count,
+         (SELECT COUNT(*) FROM sap_writes WHERE ...) AS sap_count
+  FROM legacy_writes legacy
+  WHERE legacy.write_time BETWEEN ? AND ?
+  GROUP BY legacy.customer_id
+  HAVING legacy_count != sap_count;
+    - Any mismatch triggered an alert for investigation.
+
+  - Cutover involved:
+    a. Freezing legacy writes at T-0.
+    b. Flushing SAP backlog (processed via our API with idempotency checks).
+    c. Switching MBS to read-only from SAP-only.
+
+  - Used database locks (SELECT FOR UPDATE) on customer records during persistence to prevent concurrent legacy/SAP writes during
+  transition.
+  Key Points to Mention: Dual-write minimized risk; reconciliation caught 3 mapping bugs pre-cutover; DB locks prevented split-brain
+  scenarios during transition window (only held for <200ms per customer).
+
+  ---
+  SECTION 3: ATC EDIT-FLOW REFACTOR
+
+  (Consolidated fragmented multi-API edit operations)
+
+  Q: "Tell me about a time you refactored a brittle API surface to improve maintainability."
+  A (STAR):
+  - S: The ATC (Account & Teams Configuration) edit-flow had 12+ disjointed REST APIs (e.g., /api/atc/user/{id}/role,
+  /api/atc/user/{id}/department, /api/atc/user/{id}/contact) managed by different teams. This caused:
+    - Inconsistent validation (some APIs checked permissions, others didn't).
+    - Partial-update risks (e.g., updating role without department could leave invalid state).
+    - High cognitive load for frontend teams (React SPA needing to call 5 APIs for one user edit).
+
+  - T: I was assigned to consolidate these into a single, cohesive backend pattern reducing errors and improving long-term
+  maintainability.
+  - A:
+    - Designed a single canonical endpoint: PATCH /api/v2/atc/customers/{customerId} with a JSON Patch (RFC 6902) request body.
+    - Created an ATC Customer Aggregate domain object representing the full editable state (roles, departments, contacts,
+  subscriptions).
+    - Built a validation pipeline using Spring Validator:
+        i. JSON Syntax Validation (Jackson).
+      ii. Semantic Validation (e.g., "role X requires department Y").
+      iii. Business Rule Validation (e.g., "cannot delete last admin role").
+
+    - Used optimistic locking (@Version) to prevent lost updates.
+    - Implemented audit logging (Envers) capturing who changed what and when.
+    - Provided backward compatibility via a facade layer translating legacy API calls to the new PATCH endpoint (deprecated over 6
+  months).
+
+  - R: Reduced partial-update errors by 85%. Decreased frontend API calls per edit from 4.7→1.2. Cut new feature development time by
+  40% (adding a new editable field now requires one validation rule, not 5 API changes).
+
+  Technical Follow-Ups:
+  Q: "How did you handle validation logic for interdependent fields (e.g., role requires department)?"
+  A:
+  - Used Spring's Validator interface with @Autowired dependencies to access reference data (e.g., RoleDepartmentRuleService).
+  - Built composite validators for complex rules:
+  @Component
+  public class AtcCustomerValidator implements Validator {
+
+      private final RoleDepartmentRuleService roleDeptService;
+
+      @Override
+      public boolean supports(Class<?> clazz) {
+          return AtcCustomerPatch.class.isAssignableFrom(clazz);
+      }
+
+      @Override
+      public void validate(Object target, Errors errors) {
+          AtcCustomerPatch patch = (AtcCustomerPatch) target;
+
+          // Check each operation in the JSON Patch
+          for (Operation op : patch.getOperations()) {
+              if ("add".equals(op.getOp()) || "replace".equals(op.getOp())) {
+                  String path = op.getPath(); // e.g., "/roles/0/name"
+
+                  if (path.startsWith("/roles/")) {
+                      String roleId = extractRoleIdFromPath(path);
+                      Object newValue = op.getValue(); // e.g., department ID for role
+
+                      // Validate role-department compatibility
+                      if (!roleDeptService.isValidCombination(roleId, (String) newValue)) {
+                          errors.rejectValue("roles", "atc.role.dept.mismatch",
+                              "Role " + roleId + " requires department " + getRequiredDept(roleId));
+                      }
+                  }
+              }
+          }
+      }
+
+      // Helper to extract ID from JSON Patch path like "/roles/123/name"
+      private String extractRoleIdFromPath(String path) {
+          return path.split("/")[2];
+      }
+  }
+  Key Points to Mention: Validator ran after JSON deserialization but before service layer—caught errors early; used @Autowired to
+  access reusable rule services; errors bound to specific field paths for precise frontend feedback.
+
+  Q: "How did you ensure backward compatibility during the refactor?"
+  A:
+  - Created a Facade Controller (AtcLegacyFacadeController) mapping old endpoints to new PATCH logic:
+  @RestController
+  @RequestMapping("/api/atc/legacy")
+  public class AtcLegacyFacadeController {
+
+      private final AtcCustomerService newService; // Uses the PATCH-based logic
+
+      @PutMapping("/user/{userId}/role/{roleId}")
+      public ResponseEntity<Void> updateRoleLegacy(
+          @PathVariable String userId,
+          @PathVariable String roleId,
+          @RequestParam String newDeptId // Legacy param
+      ) {
+          // Build JSON Patch equivalent of legacy call
+          List<Operation> operations = List.of(
+              Operation.replace("/roles/" + roleId + "/department", newDeptId)
+          );
+
+          AtcCustomerPatch patch = new AtcCustomerPatch(userId, operations);
+          newService.applyPatch(patch); // Reuses all validation, locking, audit logic
+          return ResponseEntity.noContent().build();
+      }
+
+      // Similar methods for /department, /contact endpoints
+  }
+  - Deprecated legacy endpoints with @Deprecated and sunset headers; monitored usage via logs for 6 months before removal.
+  Key Points to Mention: Facade avoided duplicating validation logic; used same service layer as new API ensuring behavioral
+  consistency; gradual deprecation gave frontend teams migration time.
+
+  ---
+  SECTION 4: QUERY TIMEOUT RESOLUTION
+
+  (Fixed Bill Preview path JPQL query)
+
+  Q: "Describe a time you diagnosed and fixed a critical performance bottleneck in a production system."
+  A (STAR):
+  - S: The Bill Preview path (used by billing agents to view customer invoices before sending) timed out (>30s) during peak hours,
+  affecting 200+ agents processing high-volume invoice data. This caused billing delays and agent frustration.
+  - T: I owned the investigation and fix, focusing on reducing query latency while maintaining result accuracy.
+  - A:
+    - Used APM logs (AppDynamics) to identify the slow query: a JPQL statement fetching invoice line items with multiple joins and
+  aggregates.
+    - Ran EXPLAIN ANALYZE in Oracle SQL Developer revealing:
+        - Full table scan on INVOICE_LINE_ITEMS (50M+ rows) due to missing index on (invoice_id, status).
+      - Cartesian product caused by incorrect join condition between INVOICE and TAX_DETAILS.
+      - Unnecessary DISTINCT causing costly sort operation.
+
+    - Fixes Applied:
+        - Added composite index: CREATE INDEX IDX_INV_LINE_ITEMS_INV_STATUS ON INVOICE_LINE_ITEMS (INVOICE_ID, STATUS);
+      - Corrected join: FROM Invoice i JOIN i.taxDetails td ON i.id = td.invoiceId (was i.id = td.relatedId).
+      - Removed DISTINCT by fixing the root cause (duplicate joins) and using GROUP BY where aggregation was truly needed.
+      - Added query hint /*+ FIRST_ROWS(10) */ to optimize for first-page preview (agents rarely view >10 line items initially).
+
+    - Validated with JMeter load test simulating 150 concurrent preview requests.
+
+  - R: Reduced average query time from 38s to 1.2s. Eliminated timeouts entirely. Improved agent productivity by ~22% (based on
+  time-saved metrics).
+
+  Technical Follow-Ups:
+  Q: "How did you identify the missing index without impacting production?"
+  A:
+  - Used Oracle SQL Developer's Autotrace on a staging clone of production data (refreshed nightly):
+  SET AUTOTRACE EXPLAIN STATISTICS
+  SELECT /*+ GATHER_PLAN_STATISTICS */
+         ili.*, i.invoice_date
+  FROM INVOICE_LINE_ITEMS ili
+  JOIN INVOICE i ON ili.invoice_id = i.id
+  WHERE i.customer_id = :custId
+    AND ili.status = 'ACTIVE'
+  ORDER BY ili.line_number;
+  - Key metrics from DBMS_XPLAN.DISPLAY_CURSOR:
+    - Before fix: Rows: 50,000,000 (full scan), Bytes: 12GB, Cost: 2,450,000
+    - After index: Rows: 1,200 (index range scan), Bytes: 288KB, Cost: 85
+
+  - Confirmed in production via AWR report showing decreased db file sequential read waits for the query's SQL ID.
+  Key Points to Mention: Never tested indexes directly in production; used staging with realistic data volume; validated with both
+  explain plan and actual execution stats.
+
+  Q: "Why did you choose a composite index over two single-column indexes?"
+  A:
+  - The query filtered on both invoice_id (foreign key) and status (low-cardinality field: 'ACTIVE', 'CANCELLED', 'DRAFT').
+  - Oracle can use index skip scan or index concatenation for multi-column predicates, but:
+    - Single-column index on invoice_id would still scan all line items for an invoice (often 10-50 rows) then filter by status
+  in-app—inefficient for high-status-variance invoices.
+    - Single-column index on status would be useless (only 3 values—index not selective).
+
+  - Composite index (invoice_id, status) allowed Oracle to:
+    a. Quickly locate the invoice_id range (using leading column).
+    b. Within that range, filter by status using the second column (no table access needed for filtering).
+
+  - Verified via EXPLAIN PLAN showing INDEX RANGE SCAN IDX_INV_LINE_ITEMS_INV_STATUS instead of TABLE ACCESS FULL.
+  Key Points to Mention: Chose column order based on selectivity (high-cardinality invoice_id first); composite index served both
+  filtering and join optimization (used in join condition too).
+
+  ---
+  SECTION 5: SECURITY HARDENING
+
+  (Prevented log injection attacks)
+
+  Q: "Tell me about a time you identified and fixed a security vulnerability in a customer-facing system."
+  A (STAR):
+  - S: During a routine code review, I discovered that user-supplied input (e.g., customer names, addresses) was being logged
+  directly via log.info("Processing customer: " + customerName) in several Spring MVC controllers. This created a log injection
+  vulnerability where attackers could inject newlines or control characters to forge log entries (e.g., mimicking successful login
+  attempts).
+  - T: I led the effort to sanitize all customer-facing input logging across the MBS billing portal (JSP) and REST API endpoints
+  within 2 weeks, coordinating with the security team.
+  - A:
+    - Created a centralized LogSanitizer utility using Oracle's AXS (Application Security) guidelines:
+        - Replaced newlines (\r, \n) with \\n.
+      - Escaped control characters (ASCII 0-31, 127) as \xHH.
+      - Limited string length to 500 chars to prevent DoS via massive logs.
+      - Preserved UTF-8 validity (did not break multi-byte sequences).
+
+    - Applied sanitization at the logging point (not input validation) to:
+        - Preserve original data for audit/db storage.
+      - Avoid double-sanitization bugs.
+      - Cover all logging frameworks (Logback, Log4j2, System.out).
+
+    - Updated all controllers (REST + JSP servlets) to use:
+  logger.info("Processing customer: {}", LogSanitizer.safeLog(customerName));
+    - (Never used string concatenation for logging—always used parameterized logging).
+    - Added SonarQube rule (squid:S2077) to block logger.info("msg " + var) patterns in customer-facing modules.
+    - Conducted brown-bag session for 15 developers on secure logging practices.
+
+  - R: Eliminated log injection vulnerability (confirmed by pen test). Zero security findings related to logging in subsequent
+  audits. Improved log utility for debugging (cleaner, parseable logs).
+
+  Technical Follow-Ups:
+  Q: "Why sanitize at logging time instead of input validation?"
+  A:
+  - Input validation should enforce business rules (e.g., "name must be 2-50 chars, alphanumeric + spaces").
+  - Log injection is a logging infrastructure issue—we needed to preserve the actual user input for:
+    - Audit trails (legal requirement for billing systems).
+    - Debugging reproduction issues (e.g., a customer name with embedded newline caused a parsing bug in legacy report).
+    - Downstream systems consuming logs (ELK, Splunk) expecting raw data.
+
+  - Sanitizing at logging time:
+    - Keeps source of truth intact (DB/audit logs).
+    - Applies uniformly to all logging (including framework-generated logs we don't control).
+    - Avoids TOCTOU bugs (input validated, then altered before logging).
+  Key Points to Mention: Separation of concerns—validation for business logic, sanitization for output safety; cited OWASPASVS
+  v4.0.3: "Output encoding must be applied based on the context where the data is used."
+
+  Q: "Show me the LogSanitizer implementation."
+  A:
+  public final class LogSanitizer {
+      private LogSanitizer() {} // Prevent instantiation
+
+      // Preserves UTF-8, escapes control chars & newlines, limits length
+      public static String safeLog(String input) {
+          if (input == null) return "null";
+          if (input.isEmpty()) return "";
+
+          // Fast path for common safe strings (alphanumeric + basic punctuation)
+          if (input.matches("^[\\p{L}\\p{N}\\s\\-_.@,:#]+$") && input.length() <= 500) {
+              return input;
+          }
+
+          StringBuilder sb = new StringBuilder(Math.min(input.length(), 500));
+          int codePointCount = 0;
+
+          for (int i = 0; i < input.length(); ) {
+              int cp = input.codePointAt(i);
+              int charCount = Character.charCount(cp);
+
+              // Skip if over length limit (preserves UTF-8 by not splitting surrogates)
+              if (codePointCount++ >= 500) {
+                  sb.append("...[TRUNCATED]");
+                  break;
+              }
+
+              // Handle control characters and del
+              if (cp < 0x20 || cp == 0x7F) {
+                  sb.append(String.format("\\x%02X", cp));
+              }
+              // Handle newline/carriage return explicitly (common attack vector)
+              else if (cp == '\n' || cp == '\r') {
+                  sb.append('\\').append((char) cp);
+              }
+              // All other chars (including UTF-8 multibyte) added as-is
+              else {
+                  sb.appendCodePoint(cp);
+              }
+
+              i += charCount;
+          }
+          return sb.toString();
+      }
+  }
+  Key Points to Mention: Handled surrogate pairs correctly (UTF-8 safety); used early-exit for ASCII strings (common case); length
+  limit prevents log flooding; avoidance of regex in hot path for performance; validated with OWASP's log injection test vectors.
+
+  ---
+  SECTION 6: MULTI-APPLICATION ECOSYSTEM & CI/CD
+
+  (Spring Boot REST API, JSP Portal, Java Batch, React SPA; Kubernetes/GitHub Actions)
+
+  Q: "Describe how you ensured consistency across a multi-technology application ecosystem."
+  A (STAR):
+  - S: MBS consisted of 4 loosely coupled applications:
+    - Spring Boot REST API (backend services)
+    - JSP-based billing portal (agent UI)
+    - Java batch engine (nightly settlement, report generation)
+    - React SPA (self-service customer portal)
+  Each had its own release cycle, causing version drift and integration failures (e.g., API contract breaks).
+
+  - T: I championed efforts to reduce integration friction by standardizing contracts, versioning, and deployment practices.
+  - A:
+    - Contract-First Approach:
+        - Defined all REST APIs using OpenAPI 3.0 (stored in Git).
+      - Used SpringDoc OpenAPI to auto-generate UI and client SDKs from annotations.
+      - For JSP portal: created a TypeScript fetch client (via OpenAPI Generator) ensuring REST calls matched backend exactly.
+      - For batch engine: shared domain JAR containing DTOs and validation logic (prevented mapping drift).
+
+    - Versioning Strategy:
+        - Semantic versioning (MAJOR.MINOR.PATCH) on all APIs.
+      - MAJOR increment for breaking changes (required 2-week deprecation notice).
+      - Used Git tags (v2.1.0-release) to correlate API version with deployments.
+
+    - CI/CD Standardization:
+        - Created GitHub Actions template (.github/workflows/billing-api.yml) reused across all 4 apps:
+  name: Billing App CI/CD
+
+  on:
+    push:
+      branches: [ main ]
+    pull_request:
+      branches: [ main ]
+
+  jobs:
+    build-test:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Set up JDK 11
+          uses: actions/setup-java@v4
+          with:
+            java-version: '11'
+            distribution: 'temurin'
+        - name: Cache Maven packages
+          uses: actions/cache@v4
+          with:
+            path: ~/.m2/repository
+            key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+            restore-keys: |
+              ${{ runner.os }}-m2-
+        - name: Build and Test
+          run: mvn -B verify --file pom.xml
+        - name: Publish Test Results
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: test-results
+            path: target/surefire-reports
+
+    deploy-to-staging:
+      needs: build-test
+      if: github.ref == 'refs/heads/main'
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - name: Set up Kubectl
+          uses: azure/setup-kubectl@v3
+          with:
+            version: 'v1.28.0'
+        - name: Deploy to Staging
+          run: |
+            helm upgrade --install mbs-${{ github.sha }} ./helm/mbs \
+              --namespace staging \
+              --set image.tag=${{ github.sha }} \
+              --set env=staging
+      - Standardized Helm chart structure:
+            - values.yaml: environment-specific (staging/prod) overrides.
+        - templates/deployment.yaml: resource requests/limits based on app type (API vs batch).
+        - templates/hpa.yaml: HorizontalPodAutoscaler for REST API (CPU > 60%).
+
+    - Environment Promotion:
+        - Used GitHub Environments with required reviewers (QA lead, security) for staging → prod promotion.
+      - Implemented canary analysis via ArgoCD (not native to Actions but integrated via argocd app sync step).
+
+  - R: Reduced integration defects by 65%. Cut release coordination time from 3 days→4 hours. Enabled independent team releases
+  (e.g., React SPA could update without touching Java batch).
+
+  Technical Follow-Ups:
+  Q: "How did you handle database schema changes across the ecosystem?"
+  A:
+  - Used Flyway for version-controlled, repeatable migrations:
+    - All apps shared the same Flyway schema history table (flyway_schema_history).
+    - Migration scripts (V1__create_invoice_table.sql, V2__add_status_idx.sql) stored in Git under db/migration.
+    - Critical rule: Only the designated owner (Java batch engine team) could modify billing-related tables; other apps treated DB as
+  read-only for those tables.
+
+  - For breaking changes (e.g., splitting a table):
+    a. Deploy new table/columns alongside old (backward-compatible).
+    b. Update apps to dual-write (old + new) via feature flag.
+    c. Run backfill job to populate new structure.
+    d. Flip flag to read-new/write-old.
+    e. Decommission old structure after monitoring.
+  Key Points to Mention: Flyway ensured all apps migrated to same schema version; dual-write minimized downtime; clear ownership
+  prevented conflicting schema changes.
+
+  Q: "Why did you choose GitHub Actions over Jenkins for CI/CD?"
+  A:
+  - Lumen already had Jenkins, but we migrated new microservices (like the SAP-BRIM inbound API) to GitHub Actions because:
+    - Tighter Git integration: Native PR checks, automatic triggers on pushes to specific paths (e.g., helm/ or src/main/java/).
+    - Simpler YAML: Declarative pipelines vs. Jenkins' Groovy DSL (lower learning curve for new team members).
+    - Better artifact handling: Built-in caching (Maven, Docker layers) and artifact storage.
+    - Security: Fine-grained permissions via GitHub Secrets (no need for Jenkins credential plugin management).
+    - Cost: No additional infrastructure (Jenkins masters require dedicated VMs).
+
+  - We did not migrate existing Jenkins pipelines for stable apps (like the JSP portal) unless refactoring—avoided churn for minimal
+  gain.
+  Key Points to Mention: Pragmatic adoption—used Actions for new/greenfield work; kept Jenkins for brownfield apps where migration
+  cost > benefit; cited specific pain points (Groovy complexity, credential management).
+
+  ---
+  SECTION 7: BEHAVIORAL/LEADERSHIP (SENIOR-LEVEL)
+
+  (Ownership, mentoring, collaboration, learning agility)
+
+  *Q: "How have you mentored or supported junior engineers on your team?"
+  A:
+  - Situation: When I joined Lumen, the team had 3 junior engineers (1 year experience) struggling with Spring Boot best practices
+  and production debugging.
+  - Task: I took ownership of uplifting the team's technical competence to reduce reliance on senior engineers for routine tasks.
+  - Action:
+    - Pair Programming: Scheduled 2x/week 90-min sessions on real tickets (e.g., "Let's debug this Kafka consumer lag together").
+    - Tech Talks: Bi-weekly 30-min sessions I presented on:
+        - "Effective Use of @Transactional in Spring Boot" (with before/after code).
+      - "Reading Flame Graphs for JVM Performance Issues".
+      - "Writing Maintainable Unit Tests with Mockito".
+
+    - Code Review Mentoring: In PR comments, I didn't just say "fix this"—I explained why and linked to relevant Java/Spring docs
+  (e.g., "See Effective Java Item 78: Avoid finalizers").
+    - Production Shadowing: Took juniors with me during Bill Rerun incident response (post-stabilization) to observe runbook
+  execution.
+    - Created Runbooks: Wrote simplified, step-by-step guides for common tasks (e.g., "How to restart the SAP-BRIM inbound API pod")
+  with troubleshooting tips.
+
+  - Result: Within 3 months, juniors were independently handling:
+    - 80% of minor bugs (vs. 40% initially).
+    - Leading sprint planning for their owned components.
+    - Reducing escalations to me by 60%.
+    - One junior earned "Rising Star" recognition (Q3 2024).
+
+  *Q: "Describe a time you had to learn a new technology quickly to deliver on a project."
+  A:
+  - Situation: For the SAP-BRIM integration, Lumen needed to consume SAP IDocs via HTTPS, but the team had zero recent experience
+  with SAP protocols or XML-heavy enterprise integrations.
+  - Task: I needed to become proficient in SAP IDoc structure, XSD validation, and secure HTTPS consumption within 3 weeks to meet
+  the migration deadline.
+  - Action:
+    - Structured Learning:
+        - Completed SAP's free "Introduction to IDocs" openSAP course (focused on technical structure, not functional).
+      - Studied SAP-provided XSDs using xjc to generate sample Java classes and understand field semantics.
+      - Built a local SAP mock server using WireMock to simulate IDoc payloads for testing.
+
+    - Applied Learning:
+        - Implemented XSD validation in Spring Boot using javax.validation with custom ConstraintValidator for SAP-specific rules
+  (e.g., "field must be uppercase").
+      - Used Apache HttpClient with TLS 1.2 and certificate pinning (verified via SAP's security portal).
+      - Wrote integration tests comparing our output against SAP's sample IDocs.
+
+    - Knowledge Sharing:
+        - Created a one-page "SAP IDoc Cheat Sheet" for the team (segment types, common fields, error codes).
+      - Presented findings in architecture meeting, influencing decision to use canonical model instead of direct IDoc persistence.
+
+  - Result: Delivered the inbound API 5 days ahead of schedule with zero SAP-related defects in initial load testing (10K IDocs/hr).
+  Note: Connect this to your Azure Fundamentals cert—shows pattern of rapid upskilling.
+
+  *Q: "How do you collaborate with product or client teams to ensure you're building the right thing?"
+  A:
+  - Situation: During the ATC edit-flow refactor, initial designs from the product team proposed a monolithic "save all fields"
+  endpoint, which would have worsened partial-update risks.
+  - Task: I needed to reconcile product's desire for simplicity with technical needs for data integrity and auditability.
+  - Action:
+    - Joint Design Sessions: Held 3x/week 60-min workshops with product owner, UX lead, and senior frontend engineer.
+    - Used Impact Mapping:
+        - Goal: "Reduce customer data inconsistencies caused by partial updates".
+      - Actors: Billing agents, customers (self-service), downstream systems (provisioning).
+      - Impacts: Fewer escalations, higher data trust, faster self-service adoption.
+      - Deliverables: Compared "save all" vs. "field-level PATCH" approaches against these impacts.
+
+    - Data-Driven Demo:
+        - Showed product team real logs from JSP portal:
+            - 32% of edits involved only 1-2 fields (e.g., just updating phone number).
+        - Current "save all" approach forced agents to re-enter unchanged fields (error-prone).
+
+    - Compromise Solution:
+        - Agreed on PATCH endpoint for most edits (field-level control).
+      - For complex transactions (e.g., "change primary contact + add subscription"), created a transactional composite action
+  endpoint (POST /api/v2/atc/customers/{id}/transactions) that grouped related changes under one audit entry.
+      - Jointly defined validation rules (e.g., "cannot delete primary contact without adding new one").
+
+  - Result: Product team reported 25% fewer clarification requests during development. Post-launch, self-service edit completion rate
+  increased by 18% (agents noted it "felt more responsive").
+
+  ---
+  SECTION 8: GENERAL TECHNICAL (ANSWERED THROUGH LUMEN LENS)
+
+  Frame all core Java/Spring/K8s questions as "How did you apply X at Lumen?"
+
+  Q: "Explain how Spring's @Transactional propagation works."
+  A (Lumen Context):
+  - In the Bill Rerun workflow, we used Propagation.REQUIRED (default) for the main service method.
+  - When calling the SAP-BRIM inbound API from the batch engine, we used Propagation.REQUIRES_NEW to ensure SAP IDoc processing was
+  independent of the batch job's transaction—if SAP failed, we didn't want to rollback the entire batch window's work.
+  - For audit logging in ATC edit-flow, we used Propagation.MANDATORY on the log service method—ensuring logs only persisted if the
+  main business transaction succeeded (otherwise, logs would be meaningless).
+  - Key Insight: Propagation isn't just about DB transactions—it's about defining clear boundaries of consistency for business
+  operations.
+
+  *Q: "How does ConcurrentHashMap achieve better thread-safety than Hashtable?"
+  A (Lumen Context):
+  - In the SAP-BRIM inbound API, we used ConcurrentHashMap to cache recently validated IDoc schemas (XSDs) to avoid reparsing on
+  every request.
+  - Hashtable would lock the entire map for every get()/put(), creating contention under load (we saw 500+ req/min spikes).
+  - ConcurrentHashMap uses segment-level locking (or in Java 8+, CAS + bins) so:
+    - Multiple threads can read different segments simultaneously.
+    - Writes only lock the specific segment being modified.
+
+  - This gave us ~8x better throughput under peak load (validated via JMeter).
+  - Key Insight: Choose synchronization granularity based on access patterns—our cache had high read/write ratio with key-based
+  locality.
+
+  *Q: "How would you design a Kubernetes deployment for a high-traffic payment API?"
+  A (Lumen Context - Adapted from MBS REST API):
+  - Based on our MBS REST API deployment (handling ~2K RPM peak):
+    - Resource Requests/Limits:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+        - Requests set based on average usage (from Prometheus); limits set to 2x requests to allow burst without OOMKill.
+
+    - Readiness/Liveness Probes:
+  readinessProbe:
+    httpGet:
+      path: /actuator/health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: 8080
+    initialDelaySeconds: 60
+    periodSeconds: 10
+        - Readiness: checks if app can serve traffic (DB connections up, Kafka consumers alive).
+      - Liveness: checks for fatal JVM issues (deadlock, OOM) - slower to avoid false positives.
+
+    - Horizontal Pod Autoscaler (HPA):
+  apiVersion: autoscaling/v2
+  kind: HorizontalPodAutoscaler
+  metadata:
+    name: mbs-api-hpa
+  spec:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: mbs-api
+    minReplicas: 3
+    maxReplicas: 15
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+        - Targeted 60% CPU utilization (left headroom for GC spikes); min 3 replicas for AZ resilience.
+
+    - Key Insight: Always set resource requests—Kubernetes scheduler uses them for node placement; without requests, pods get
+  best-effort QoS and are first to be killed under pressure.
+
+  ---
+  ✅ FINAL PREPARATION CHECKLIST
+
+  Before your interview:
+  1. Verify Metrics: Confirm exact Lumen numbers (customers, revenue, error reduction %)—use whichever is accurate and defends your
+  impact.
+  2. Memorize 3-4 STAR Stories: Bill Rerun (ownership), SAP-BRIM (collaboration), ATC Edit-Flow (design), Query Fix
+  (troubleshooting).
+  3. Prepare Technical Soundbites: Have 30-second explanations ready for:
+    - Why you chose MapStruct over manual mapping.
+    - How your idempotency solution worked.
+    - Why you used ConcurrentHashMap for schema cache.
+
+  4. Anticipate Gap Question: Practice your positive framing:
+  ▎ "My 5.4 years at Lumen gave me depth few engineers achieve in longer tenures—owning production workflows processing $60M+
+  revenue, leading ERP integrations, and designing resilient systems. I've continuously upskilled (Azure cert, SAP training) to
+  ensure my skills remain current. What matters isn't just years, but the impact per year—and I'm confident my Lumen experience
+  equips me to excel in this Sr. Engineer role at ACI."
+  5. Research ACI: Know 1-2 specific products (e.g., BASE24-eps for real-time payments, ACT Manager for fraud) and ask one insightful
+  question about their Bangalore team's current challenges.
+
+  You have exceptional, relevant experience—your billing/payments domain expertise is a rare and valuable differentiator. Trust your
+  preparation, speak concretely about what you actually did, and connect every answer to how it helps ACI power the world's payments
+  ecosystem. You've got this.
+
+  Good luck—you're ready. 🚀

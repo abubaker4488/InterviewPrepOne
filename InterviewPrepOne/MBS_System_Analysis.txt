@@ -1,0 +1,588 @@
+# MBS Billing Platform — Complete System Analysis
+
+---
+
+## A. Executive Summary
+
+**MBS (Managed Billing System)** is an enterprise-grade billing platform built for **Lumen Technologies** (formerly CenturyLink/CTL), a major US telecom provider. It handles the full lifecycle of telecom billing: customer setup, bill generation, tax computation, invoice delivery, payment posting, and financial reconciliation. The platform serves multiple sub-systems (called "system names" — e.g., `BARTMBS`) and supports tens to potentially hundreds of enterprise customers.
+
+The system is composed of four interconnected applications that share an Oracle database:
+
+| App | Role |
+|---|---|
+| **mbs-app-API** | Core billing engine — exposes REST APIs for all billing operations |
+| **mbs-app-GUI** | Legacy web UI — JSP-based interface for billing agents and admins |
+| **ATC** | Modern project management UI — React SPA managing construction billing projects |
+| **mbs-app-BATCH** | Batch engine — standalone Java library for billing computation and invoice generation |
+
+---
+
+## B. Architecture Diagram (Text Form)
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                           LUMEN MBS PLATFORM                                   │
+│                                                                                │
+│  ┌──────────────────┐     ┌──────────────────────────────────────────────────┐ │
+│  │   ATC Frontend   │     │              mbs-app-GUI                         │ │
+│  │  (React SPA)     │     │    (Spring Boot 2.1 + JSP + jQuery/Bootstrap)    │ │
+│  │  - Dashboard     │     │    - Customer browse & search                    │ │
+│  │  - EngineerPage  │     │    - Bill compute/view                           │ │
+│  │  - FinancePage   │     │    - Payment recording                           │ │
+│  │  - AddendumPage  │     │    - Adjustments                                 │ │
+│  └────────┬─────────┘     │    - PDF bill viewer                             │ │
+│           │REST            │    - Reports, OCC, Expense, Admin                │ │
+│           ▼                └──────────────┬───────────────────────────────────┘ │
+│  ┌──────────────────┐                     │ REST (RestTemplate)                  │
+│  │   ATC Backend    │                     ▼                                    │
+│  │  (Spring Boot    │     ┌──────────────────────────────────────────────────┐ │
+│  │   3.2 / Java 17) │────▶│               mbs-app-API                        │ │
+│  │  - Auth (LDAP)   │     │   (Spring Boot 2.5 / Java 8 / WAR on Tomcat)     │ │
+│  │  - ProjectData   │     │                                                  │ │
+│  │  - Workflow      │     │  Controllers:  CustomerController                │ │
+│  │  - Schedulers    │     │               CustomerBillingController          │ │
+│  │  - Adobe Sign    │     │               BatchInvoiceController             │ │
+│  │  - BRIM Adaptor  │     │               AdjustmentController               │ │
+│  │  - MBS Adaptor   │     │               PostPaymentController              │ │
+│  └──────────────────┘     │               MbsBrimFileController              │ │
+│                           │               MbsTaxController                   │ │
+│                           │               MnetController                     │ │
+│                           │               DataMappingController              │ │
+│                           │                                                  │ │
+│                           │  Embedded: mbs-app-BATCH (MbsBillingDef.jar)    │ │
+│                           │  External: CGS/Vertex Tax API                    │ │
+│                           │  External: BRIM (Billing & Revenue Mgmt)         │ │
+│                           │  External: MNET (Employee Directory)             │ │
+│                           └──────────────────────────────┬───────────────────┘ │
+│                                                          │ JPA/Hibernate       │
+│                           ┌──────────────────────────────▼───────────────────┐ │
+│                           │         Oracle Database                          │ │
+│                           │   (svc_mbs001d/mbs001t/svc_mbs001p)             │ │
+│                           │   Schemas: MBSAPP, MBSOWNER, MBSBRSP             │ │
+│                           └──────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1. mbs-app-API — Deep Analysis
+
+### 1.1 High-Level Purpose
+The core REST API backend for the entire MBS billing platform. It is the single source of truth for billing logic. Both the GUI and ATC consume it.
+
+### 1.2 Business Purpose
+- Automates telecom billing: rate customers, compute taxes, generate invoices, post payments, apply adjustments
+- Integrates with external financial systems (BRIM) for journal entries, accruals, and write-offs
+- Provides PDF invoice generation on demand
+- Enables the batch billing cycle to be triggered via REST endpoints
+
+### 1.3 Technology Stack
+
+| Component | Technology |
+|---|---|
+| Framework | Spring Boot 2.5.6 |
+| Language | Java 8 |
+| Database | Oracle (ojdbc8), JPA/Hibernate |
+| Packaging | WAR deployed to Tomcat |
+| Docs | Springdoc OpenAPI / Swagger UI |
+| PDF | iText 7 |
+| Email | Spring Boot Mail |
+| HTTP client | Apache HttpClient |
+| Batch engine | `MbsBatch-1.0.jar` (mbs-app-BATCH embedded as dependency) |
+| Serialization | Jackson 2.12 |
+
+### 1.4 Architecture Overview
+- Follows layered Spring MVC: `Controller → Service/Repository → Model → Oracle DB`
+- **`MbsBillingDef`** (from the Batch JAR) is the core computation engine, called directly from `CustomerBillingController`
+- **BRIM** integration layer (dedicated `brim/` package) handles all external financial system communication
+- Multi-environment support via commented `application.properties` blocks: DEV, TEST, TEST2, PREPROD, BRSPD, PROD
+
+### 1.5 Major Controllers and Their Business Roles
+
+| Controller | Endpoint(s) | Business Role |
+|---|---|---|
+| `CustomerController` | `/customer`, `/getCustomerId`, `/downloadBill` | Customer CRUD, bill download |
+| `CustomerBillingController` | `/customerBilling`, `/generatebillPreviewPdf` | Run billing for a customer, preview PDF invoice |
+| `BatchInvoiceController` | `/batch-invoice/process-complete-invoice`, `/batch-invoice/*` | Orchestrate full invoice workflow: rating → billing → taxing → formatting |
+| `AdjustmentController` | `/cancelInvoice` | Invoice cancellation, credit adjustments |
+| `PostPaymentController` | `/postPayment` | Post incoming payments, update bill balance history |
+| `MbsBrimFileController` | `/MbsBrimFileDetails`, `/MbsBrimAccrualsDetails`, `/setOutboundJson`, etc. | BRIM integration: charges, accruals, payments, write-offs, daily feed |
+| `MbsTaxController` | `/Cgs-AccesToken`, `/Cgs-prod-AccesToken` | CGS/Vertex tax engine authentication |
+| `MnetController` | `/AssignDetails`, `/DeligationDetails`, `/DeligationStatus` | Employee directory lookups and delegation chains for approval workflows |
+| `DataMappingController` | (data mapping) | Product/service code cross-reference management |
+| `AppPropertiesController` | (config) | Runtime application configuration |
+
+### 1.6 Key Models (Entities)
+
+| Entity | Business Meaning |
+|---|---|
+| `CustomerDetail` | Master customer record with billing address, system name |
+| `BillInvoiceDetails` | Individual invoice header record |
+| `BillComputeDetail` | Line-level charge breakdown per service code |
+| `TaxComputeDetail` | Tax calculation result per invoice line |
+| `BillAdjustments` | Credit/debit adjustments against invoices |
+| `BillBalHistory` | Running balance history — paid/pending amounts |
+| `PaymentDetails` | Individual payment transaction record |
+| `ProductServiceRate` | Rate table for telecom products/services |
+| `MBSBillPullDetail` | Billing cycle control — tracks bill pull dates per customer |
+| `MbsBrimTax` | Tax data for BRIM reconciliation |
+| `AssignDetails` | Approval assignment rules (amount thresholds per user) |
+| `ErrorLog` | Billing process error tracking |
+| `OutboundJson` / `InboundJson` | BRIM integration message queue records |
+| `LegacyProductXref` | Cross-reference between legacy system product codes and MBS codes |
+
+### 1.7 BRIM Integration (Critical)
+**BRIM = Billing and Revenue Management** — an external financial system (likely SAP or similar ERP).
+
+MBS sends BRIM:
+- **Charges** — billed amounts per customer per period
+- **Accruals** — projected revenue before billing
+- **Payment transactions** — received payments
+- **Write-off transactions** — uncollectible amounts
+- **Daily feed** — account history, payment history, write-off history
+
+The `MbsBrimDailyFeedServiceImpl` calls BRIM via HTTP using Basic Auth, posting JSON request DTOs and receiving structured response DTOs.
+
+### 1.8 Important Workflows
+
+**Invoice Generation Workflow** (`/batch-invoice/process-complete-invoice`):
+```
+1. Validate system name
+2. Rating: calculateUsageAndOCCCharges (RatingService)
+3. Billing: processBillingForCustomerList (BatchBillingInvoiceService)
+4. Taxing: computeTaxes (BatchTaxingInvoiceService)
+5. Formatting: formatInvoices, generate PDF (BatchFormattingInvoiceService)
+```
+
+**Payment Posting Workflow** (`/postPayment`):
+```
+1. Validate customer exists
+2. Record PaymentDetails
+3. Update BillBalHistory (PAID status)
+4. Update BillInvoiceDetails
+5. Send to BRIM via outbound JSON
+```
+
+**Invoice Cancellation** (`/cancelInvoice`):
+```
+1. Validate invoice exists
+2. Create reversal BillAdjustments with ADJ prefix
+3. Update BillBalHistory
+4. Log to ErrorLog if needed
+```
+
+---
+
+## 2. mbs-app-BATCH — Deep Analysis
+
+### 2.1 High-Level Purpose
+A standalone Java library (compiled as a JAR) containing the core billing computation engine. It is **not a web application** — it is embedded directly into `mbs-app-API` as a Maven dependency (`MbsBatch-1.0`).
+
+### 2.2 Business Purpose
+- Performs the actual mathematical billing computation
+- Generates formatted invoice files (PDF, text)
+- Handles usage rating, OCC (One-Time Charges), expense billing, PIU (Percent in Use) splitting
+- Calculates taxes via the CGS/Vertex tax engine
+- Creates invoice files for delivery to customers
+
+### 2.3 Technology Stack
+
+| Component | Technology |
+|---|---|
+| Language | Java 8 |
+| ORM | Hibernate (direct Session/Transaction — not Spring) |
+| PDF | Custom PDF formatter with embedded fonts |
+| Email | JavaMail |
+| Logging | Log4j |
+| DB | Oracle via JDBC |
+| Packaging | JAR library |
+
+> **Critical design note**: The Batch module uses **raw Hibernate sessions** (not Spring Data JPA). It directly manages `Session` and `Transaction` objects. This is legacy architecture from before the Spring Boot migration.
+
+### 2.4 Major Service Classes
+
+| Class | Business Role |
+|---|---|
+| `MbsBillingDef` | **Master orchestrator** — calls all sub-processes in order |
+| `MbsBillingAndCreateInvoices` | Drives the billing computation and invoice creation |
+| `MbsRatingProcess` / `MbsUsageRatingProcess` | Rate usage records against product/service rate tables |
+| `MbsTaxCalcAndFrmt` / `MbsTaxComputeNewCalc` | Tax calculation using CGS/Vertex |
+| `MbsOccChargesCalc` | One-time charge computation |
+| `MbsPIUSplitCalc` / `MbsPIUSplitCalcMonthly` | Percent-in-use splits for shared services |
+| `MbsConstructCompute` | Builds the compute detail objects |
+| `MbsPdfFormatNewDP` / `MbsPdfFrmtPart1` | PDF invoice formatting |
+| `MbsInvoiceCreateWriteDP` | Writes invoice files to disk |
+| `MbsBillBalHistoryInsert` | Inserts balance history after billing |
+| `MbsPaymentAutoIns` | Auto-inserts payment records in certain scenarios |
+| `MbsStatementProcessor` | Statement/summary generation |
+| `AtxATTFileRecordsDP` | AT&T format file processing |
+| `BillReRunProcess` | Re-run billing for a prior period |
+
+### 2.5 Environment Setup
+`MbsEnvSetup` defines environments: `DEV, TEST, TEST2, PREPROD, BRSPD, PROD`. All DB connection strings, email recipients, API endpoints, and file paths are controlled by this single enum switch. The Batch module reads property files (`api-DEV.properties`, `hibernate-DEV.properties`, etc.) from the `bin/` or `src/` directory.
+
+---
+
+## 3. mbs-app-GUI — Deep Analysis
+
+### 3.1 High-Level Purpose
+The legacy web front-end for billing agents and administrators. Provides a browser-based interface for all billing operations. Uses server-side rendering with JSP.
+
+### 3.2 Business Purpose
+- Billing agents log in and work customer accounts daily
+- View and generate PDF bills
+- Record payments, apply adjustments, cancel invoices
+- Run reports (PDF and Excel exports)
+- Manage reference data (rate tables, product codes, state codes)
+- Admin functions: user registration, role assignment, system configuration
+
+### 3.3 Technology Stack
+
+| Component | Technology |
+|---|---|
+| Framework | Spring Boot 2.1.8 |
+| Language | Java 8 |
+| View layer | JSP + JSTL, Bootstrap 3, jQuery 1.9 |
+| Database | Oracle (ojdbc8 19.3) |
+| PDF | iText 5 |
+| Messaging | ActiveMQ (JmsTemplate, MbsMessageProducer) |
+| Packaging | WAR deployed to Tomcat |
+
+### 3.4 Architecture
+- Standard Spring MVC: `@Controller` returns JSP view names (server-side rendered)
+- GUI makes HTTP calls to `mbs-app-API` via `RestTemplate` (`RestClient` helper)
+- Session-based authentication: user/role stored in `HttpSession` attributes (`CUID`, `USER_ROLE`, `SYSTEM_NAME`)
+- `MbsSessionTrackingUtil` guards all protected pages — redirects to `/login` if session is invalid
+
+### 3.5 Major Controllers and JSP Pages
+
+| Controller | JSP Pages | Function |
+|---|---|---|
+| `MBSUserProfileController` | `Login.jsp`, `Logout.jsp`, `Registration.jsp`, `Admin.jsp` | Auth, user management |
+| `CustomerController` | `CustomerDashboard.jsp`, `CustomerDetail.jsp`, `MasterSearch.jsp` | Customer browse, detail view |
+| `BillComputeController` | (AJAX endpoints) | Charge/tax data for bill display |
+| `PaymentController` | `PaymentPage.jsp`, `PaymentSummary.jsp` | Payment recording |
+| `AdjustmentController` | `Adjustment.jsp`, `AdjustmentSummary.jsp` | Adjustments |
+| `BNCController` | `BNCHomePage.jsp`, `BNCHeader.jsp` | Main home page/navigation hub |
+| `BillControlController` | (bill control) | Bill control parameters |
+| `ReportController` | `ShowReport.jsp`, `PdfReport.jsp`, `ExcelReport.jsp` | Reporting |
+| `OCCController` | `OCC.jsp` | One-time charges management |
+| `ExpenseController` | `Expense.jsp` | Expense billing |
+| `ApprovalController` | `Approve.jsp` | Invoice/payment approval workflow |
+| `ReferenceTableController` | `ReferenceTable.jsp` | Lookup tables management |
+| `MarketMessageController` | `MarketMessage.jsp` | Market messages on invoices |
+| `ErrorCorrectionController` | `ErrorCorrection.jsp` | Billing error correction |
+| `NotesController` | `Notes.jsp` | Customer notes |
+
+### 3.6 ActiveMQ Integration
+The GUI uses `JmsTemplate` and a `MbsMessageProducer` to send async messages, likely for triggering billing jobs or notifications without blocking the UI thread.
+
+### 3.7 Security Model
+- Login validates against database user table (`BCUserDetails`)
+- Roles stored in `MbsRoleDescription` table
+- LDAP integration exists (Spring LDAP in pom.xml)
+- Session attributes: `CUID` (user ID), `USER_ROLE`, `SYSTEM_NAME`, `USER_FULLNAME`
+- Tab-level access control via `BNCAppConstants` tab constants (CUSTOMER_TAB, PAYMENT_TAB, etc.)
+
+---
+
+## 4. ATC — Deep Analysis
+
+### 4.1 High-Level Purpose
+A modern React + Spring Boot application managing the **Access Termination Charge (ATC)** billing project lifecycle — specifically for construction/infrastructure projects billed to external customers (highway relocates, special construction, MDU, etc.).
+
+### 4.2 Business Purpose
+- Engineers submit new billing projects with WBS elements, cost details, customer info
+- Finance team reviews proposals, sends payment request URLs, records PO/check payments
+- System generates PDF proposals using Adobe Sign / PDF templates
+- Tracks project status through a state machine workflow
+- Automatically polls MBS API and BRIM for payment status on eligible projects
+- Sends emails at key workflow transitions
+- Generates addendums (project scope changes)
+
+### 4.3 Technology Stack
+
+| Component | Technology |
+|---|---|
+| Backend | Spring Boot 3.2.2, Java 17 |
+| Frontend | React 18, React Router 6, Axios |
+| Database | Oracle (ojdbc11 21.9) |
+| ORM | Spring Data JPA + Hibernate 6 |
+| Caching | Caffeine (via Spring Cache) |
+| PDF | Apache PDFBox 3.0, iText (template filling), Tesseract OCR |
+| Auth | LDAP (ldaps://Ldapddc.corp.intranet) |
+| Email | JavaMail via mailgate.qintra.com |
+| Document signing | Adobe Sign REST API |
+| Packaging | WAR deployed to Tomcat at `/atc` context path |
+| Scheduling | Spring `@Scheduled` |
+
+### 4.4 Architecture
+- Backend REST API (`/api/`, `/auth/`, `/master-project/`, `/finance/`, `/projects/`) consumed by React SPA
+- React SPA served from the same WAR (built into `static/`)
+- State machine via `WorkflowTransition` entity — every status change is recorded
+- Service adaptors pattern: `MBSServiceAdaptor`, `BRIMServiceAdaptor`, `BSPURLServiceAdaptor` — abstracts external calls
+
+### 4.5 React Frontend Pages
+
+| Page | Role |
+|---|---|
+| `LoginPage` | LDAP-authenticated login, stores `cuid` + `role` in localStorage |
+| `Dashboard` | Search projects by year/BAN, view details, customer balance, PDF preview |
+| `EngineerPage` | Create new ATC project: WBS lookup, customer info, cost breakdown, service details |
+| `FinancePage` | Finance workflow: filter by status, send PURL, record PO/check, release project, send billing data to MBS |
+| `AddendumPage` | Submit project addendum: cancellation, description change, negotiated amount change |
+
+### 4.6 Key Entities
+
+| Entity | Business Meaning |
+|---|---|
+| `ProjectData` | Core project record: project ID, WBS, customer ID, status, originator, PO number, billing amounts |
+| `BillingData` | Bill breakdown linked to a project |
+| `Proposal` | PDF proposal document (stored as bytes + metadata) |
+| `Payment` | Payment record: check#, amount, posting date |
+| `CppmMasterData` | CPPM (Capital Project Portfolio Management) system data |
+| `WorkflowTransition` | Audit log of every project status change |
+| `UserRole` | User CUID + role (ENGINEER, FINANCE, ADMIN) |
+| `Notes` | Free-text notes on a project |
+| `ReportConfig` | Report schedule configuration |
+
+### 4.7 Workflow State Machine
+
+```
+SUBMITTED (Engineer)
+    → UNDER_REVIEW (Finance)
+    → PURL_SENT (Finance sends payment URL to customer)
+    → PO_RECEIVED (Customer returns signed PO)
+    → BILLING_SENT (Finance sends billing data to MBS)
+    → PAYMENT_RECEIVED (Scheduler detects payment in MBS/BRIM)
+    → CLOSED / CANCELLED
+```
+
+### 4.8 Scheduled Jobs
+
+| Scheduler | Schedule | Purpose |
+|---|---|---|
+| `MBSPaymentHistoryScheduler` | `0 30 2 * * ?` (2:30 AM daily) | Poll MBS API for payment data on eligible projects |
+| `BRIMPaymentScheduler` | (configurable via APP_PROPERTIES) | Poll BRIM for payment confirmation on eligible projects |
+
+### 4.9 External System Integrations
+
+| System | Purpose |
+|---|---|
+| **MBS API** (`MBSServiceAdaptor`) | Get customer payments, send billing data |
+| **BRIM** (`BRIMServiceAdaptor`) | Get payment transactions from revenue management system |
+| **BSPURL** (`BSPURLServiceAdaptor`) | Send payment request URL to customer |
+| **Adobe Sign** | OAuth + API for proposal document e-signing |
+| **LDAP** | Corporate directory for authentication |
+| **MNET** | Employee directory lookup (name, email, CUID) |
+
+---
+
+## C. End-to-End Request Flows
+
+### Flow 1: Billing Agent Posts a Payment (GUI → API → Oracle)
+```
+1. Agent opens PaymentPage.jsp in mbs-app-GUI
+2. GUI controller calls mbs-app-API /postPayment via RestTemplate
+3. API PostPaymentController validates customer in CustomerDetail table
+4. API inserts PaymentDetails record (Oracle)
+5. API updates BillBalHistory to PAID status
+6. API updates BillInvoiceDetails
+7. API queues outbound BRIM JSON via OutboundJsonRepository
+8. BRIM picks up JSON and confirms payment in revenue management
+9. GUI shows confirmation back to agent
+```
+
+### Flow 2: Full Invoice Generation (API BatchInvoiceController)
+```
+1. POST /batch-invoice/process-complete-invoice?systemName=BARTMBS&billPullDate=23-MAY-25
+2. Validate systemName
+3. RatingService: rate all usage records for customer list
+4. BatchBillingInvoiceService: MbsBillingDef.BillingInfo() → full billing computation
+   - Pulls bill pull dates, customer config
+   - Computes line charges per service code
+   - Handles OCC, PIU splits, expense billing
+   - Inserts BillComputeDetail, BillInvoiceDetails
+5. BatchTaxingInvoiceService: calls CGS/Vertex API for tax amounts
+   - Inserts TaxComputeDetail
+6. BatchFormattingInvoiceService: generates PDF invoice
+   - Writes to file system + stores as base64 in BillInvFile
+7. Returns success/failure response
+```
+
+### Flow 3: ATC Project Payment Tracking (Scheduled)
+```
+2:30 AM daily — MBSPaymentHistoryScheduler fires
+1. Reads APP_PROPERTIES for "EligibleStatusForMBSPmtInfoCheck" statuses
+2. Queries PROJECT_DATA for projects in those statuses
+3. For each project: calls MBSServiceAdaptor → mbs-app-API /customerPaymentHistory
+4. If payment found: inserts Payment record in ATC Oracle schema
+5. Calls WorkflowTransitionService → updates project status
+6. Sends email notification to originator
+```
+
+---
+
+## D. Database Interactions
+
+### Oracle Schemas
+- **MBSAPP** — Dev/Prod schema for mbs-app-API and mbs-app-GUI
+- **MBSOWNER** — Test schema owner
+- **ATCAPP** — ATC production schema
+- **MBSBRSP** — BRSP pre-prod schema
+
+### Key Tables
+
+| Table | App | Purpose |
+|---|---|---|
+| `CUSTOMER_DETAIL` | API, GUI | Master customer registry |
+| `BILL_INVOICE_DETAILS` | API, GUI | Invoice headers |
+| `BILL_COMPUTE_DETAIL` | API, GUI | Invoice line items |
+| `TAX_COMPUTE_DETAIL` | API, GUI | Tax line items |
+| `BILL_ADJUSTMENTS` | API, GUI | Credit/debit memos |
+| `BILL_BAL_HISTORY` | API, GUI | Running balance and payment status |
+| `PAYMENT_DETAILS` | API, GUI | Payment transactions |
+| `PRODUCT_SERVICE_RATE` | API, GUI, Batch | Rate tables |
+| `MBS_BILL_PULL_DETAIL` | API, Batch | Billing cycle dates |
+| `OCC_DETAIL` | API, GUI | One-time charge records |
+| `INBOUND_JSON` / `OUTBOUND_JSON` | API | BRIM message queue |
+| `ERROR_LOG` | API, GUI | Billing processing errors |
+| `AUDIT_INFO` | API, GUI | Audit trail |
+| `APP_PROPERTIES` | API, GUI, ATC | Runtime config key-value store |
+| `PROJECT_DATA` | ATC | ATC project master |
+| `WORKFLOW_TRANSITION` | ATC | Project state audit log |
+| `PAYMENT` | ATC | ATC payment records |
+| `PROPOSAL` | ATC | PDF proposal blobs |
+| `USER_ROLE` | ATC | User access control |
+
+---
+
+## E. External Integrations Summary
+
+| System | Protocol | Used By | Purpose |
+|---|---|---|---|
+| **BRIM** | REST/JSON, Basic Auth | API, ATC | Revenue mgmt: charges, accruals, payments, write-offs |
+| **CGS/Vertex** | REST/JSON, OAuth | API, Batch | Tax computation engine (telecommunications tax rates) |
+| **MNET** | Internal REST | API, ATC, GUI | Employee directory (name, email, reporting chain) |
+| **BSPURL** | REST | ATC | Send payment request URLs to customers |
+| **Adobe Sign** | REST OAuth | ATC | E-signature on proposals |
+| **LDAP** | LDAPS:636 | GUI, ATC | Employee authentication (ctl.intranet) |
+| **ActiveMQ** | JMS | GUI | Async message passing (billing triggers) |
+| **Oracle RDBMS** | JDBC/JPA | All | Primary data store |
+
+---
+
+## F. Security and Authentication
+
+| App | Mechanism |
+|---|---|
+| **mbs-app-GUI** | Session-based: DB user table + Spring LDAP. `MbsSessionTrackingUtil` validates every request. Roles: Admin, and others. |
+| **mbs-app-API** | No authentication shown in code (internal network API — consumed by trusted GUI and Batch). API-level flag `IsApiActive` can disable endpoints. |
+| **ATC** | LDAP authentication (ldaps), role-based access (ENGINEER, FINANCE, ADMIN stored in `USER_ROLE` table). JWT tokens likely via `LoginResponse`. |
+| **Batch** | No auth — runs as scheduled process or is called via API |
+
+---
+
+## G. Interview Cheat Sheet
+
+### Q: What is MBS?
+> MBS is Lumen's internal telecom billing platform. It takes usage data for enterprise customers, rates it against product service rate tables, computes state and federal taxes using the Vertex/CGS engine, generates PDF invoices, posts payments, sends accruals and charges to the BRIM revenue management system, and provides web UIs for billing agents and project managers.
+
+### Q: How does the billing process work end to end?
+> A POST request to `/batch-invoice/process-complete-invoice` triggers a four-step pipeline: (1) Rating — usage records are rated against rate tables; (2) Billing — `MbsBillingDef` computes all charges, OCC, and PIU splits and writes to BillComputeDetail; (3) Taxing — the CGS/Vertex API calculates telecom-specific taxes; (4) Formatting — a PDF invoice is generated using iText and stored. Results flow into the Oracle BILL_INVOICE_DETAILS and related tables.
+
+### Q: What is BRIM and how does MBS interact with it?
+> BRIM is Lumen's Billing and Revenue Management system — essentially the financial system of record. MBS sends BRIM structured JSON payloads containing charges, accruals, payment transactions, and write-offs via authenticated REST calls. MBS also polls BRIM's daily feed endpoints for payment history and account history to keep billing records synchronized.
+
+### Q: What is ATC?
+> ATC stands for Access Termination Charge. It's a React + Spring Boot application that manages construction-related billing projects (highway relocates, special construction, line extensions) through a defined workflow: Engineer submits → Finance reviews → Payment URL sent to customer → PO received → Billing data sent to MBS → Payment confirmed. Automated schedulers poll MBS and BRIM nightly to detect when payments arrive.
+
+### Q: How does the GUI communicate with the API?
+> The GUI is a Spring Boot application with server-side JSP rendering. Its `@Controller` classes use a `RestTemplate`-based `RestClient` helper to make HTTP calls to `mbs-app-API`. The GUI itself does not directly access the Oracle billing tables for read/write operations — it delegates to the API layer.
+
+### Q: What database does the system use and why Oracle?
+> Oracle Database is used across all applications. Specific connection strings show TNS names pointing to `azeus2lorambsn1.corp.intranet` for cloud-hosted instances and `racorad`-prefixed hosts for on-premises RAC clusters. Oracle was chosen for its enterprise reliability, RAC (Real Application Clusters) for high availability, and its support for complex billing-grade queries.
+
+### Q: How is tax computation done?
+> MBS integrates with CGS (likely Vertex Communications Tax Engine) for all tax calculations. The API first obtains an OAuth access token via `/Cgs-AccesToken`, then passes billing line items to the tax API. Results are stored in `TaxComputeDetail` and linked to invoices. The Batch module also has `MbsTaxComputeNewCalc` and `MbsTaxCalcAndFrmt` for batch tax processing.
+
+### Q: How does approval delegation work?
+> The `MnetController` exposes endpoints that query the `AssignDetails` table. When a user submits an action (e.g., large payment), the system calls `/AssignDetails?cuid=X&amount=Y&systemName=Z` to look up who in the org hierarchy has approval authority for that dollar amount. Delegation is handled by `/DeligationDetails` and `/DeligationStatus`.
+
+### Q: What are the different environments?
+> DEV, TEST, TEST2, PREPROD, BRSPD (BRSP Pre-prod), and PROD. Each maps to a different Oracle database instance and connection string. The Batch module uses property files (`api-DEV.properties`, `hibernate-DEV.properties`) per environment. The API uses commented blocks in `application.properties`.
+
+### Q: What is PIU (Percent in Use)?
+> PIU is a billing concept for shared telecom facilities. If a service is used by multiple customers (e.g., a shared fiber span), the cost is split proportionally. `MbsPIUSplitCalc` and `MbsPIUSplitCalcMonthly` compute these splits and allocate charges across customers accordingly.
+
+### Q: How does PDF invoice generation work?
+> The Batch module's `MbsPdfFormatNewDP` and `MbsPdfFrmtPart1` build PDFs programmatically using iText with embedded custom fonts (`courier-new-bold.ttf`). The PDF is written to a file system path and also encoded as base64 bytes returned via the API. In the GUI, `BCPdfBillService` handles viewing existing stored PDF bills.
+
+---
+
+## H. Resume Project Description
+
+**Managed Billing System (MBS) — Lumen Technologies**
+*Full-stack enterprise billing platform for telecom revenue management, serving enterprise customers*
+
+- Architected and maintained a multi-application billing ecosystem comprising a Spring Boot REST API, a legacy JSP-based billing portal, a modern React SPA (ATC), and a standalone Java batch billing engine
+- Core platform handles end-to-end billing lifecycle: usage rating, charge computation, tax calculation via Vertex/CGS API integration, PDF invoice generation, payment posting, and financial reconciliation with BRIM (Billing & Revenue Management system)
+- Designed and implemented REST APIs consumed by GUI and modern React front-ends using Spring Boot 2.5/3.2, JPA/Hibernate, and Oracle Database
+- Built the ATC (Access Termination Charge) project management module — a React + Spring Boot 3 application enabling Engineers and Finance teams to manage construction billing projects through a configurable workflow with automated payment detection via scheduled jobs
+- Integrated multiple external systems: BRIM via REST/JSON, CGS/Vertex tax engine, LDAP for auth, Adobe Sign for e-signatures, MNET employee directory, and ActiveMQ for async processing
+- Implemented scheduled batch jobs (`@Scheduled`) polling MBS and BRIM APIs nightly to auto-detect payments and advance project workflow states
+- Supported multi-environment deployments (DEV/TEST/PREPROD/PROD) across cloud-hosted and on-premises Oracle RAC clusters
+
+---
+
+## I. Professional Experience Bullet Points
+
+- Developed and maintained REST APIs using **Spring Boot** for a high-throughput telecom billing platform processing invoices for enterprise customers across multiple billing systems
+- Designed JPA entity models and Spring Data repositories over **Oracle Database**, implementing complex billing, payment, tax, and adjustment data models
+- Built a **React SPA** (ATC) with role-based access (Engineer/Finance/Admin), integrating with Spring Boot 3 REST backend for end-to-end construction project billing workflow management
+- Integrated with the **Vertex/CGS tax engine** for telecommunications-specific tax computation and the **BRIM financial system** for charge, accrual, and payment reconciliation
+- Implemented **Adobe Sign** OAuth integration to automate proposal e-signature workflows, reducing manual turnaround time
+- Developed **Spring @Scheduled** jobs to poll external billing APIs nightly and automatically advance project states, eliminating manual monitoring effort
+- Maintained a **legacy JSP/Spring MVC** billing portal with 20+ controllers and 30+ JSP pages, supporting billing agents with payment recording, adjustments, PDF bill viewing, and reporting
+- Managed a **multi-environment deployment pipeline** (DEV/TEST/PREPROD/PROD) across on-prem Oracle RAC and cloud-hosted Oracle instances
+
+---
+
+## J. STAR-Format Achievement Examples
+
+### STAR 1 — Modernizing the Billing UI
+- **Situation**: The legacy MBS billing portal was a JSP application with tight coupling between UI and business logic, making changes slow and risky.
+- **Task**: Introduce a modern UI layer for the ATC billing workflow without disrupting existing operations.
+- **Action**: Built the ATC application from scratch using React 18 and Spring Boot 3.2 with Java 17. Designed a clean REST API layer, implemented role-based routing (Engineer/Finance/Admin), and connected it to both the existing MBS Oracle database and external systems (BRIM, Adobe Sign, LDAP).
+- **Result**: Finance and Engineering teams gained a dedicated workflow tool with real-time project tracking, automated payment detection, and digital signature capabilities — reducing manual coordination overhead.
+
+### STAR 2 — Automating Payment Detection
+- **Situation**: Finance staff had to manually check whether customers had paid for construction projects, creating delays in project closure.
+- **Task**: Automate payment status detection across both MBS and BRIM systems.
+- **Action**: Implemented two scheduled Spring components (`MBSPaymentHistoryScheduler` at 2:30 AM daily, `BRIMPaymentScheduler` configurable) that query eligible projects, call external APIs, and automatically transition project status upon payment confirmation.
+- **Result**: Eliminated daily manual payment checks; projects advance to PAYMENT_RECEIVED status and trigger closure notifications automatically.
+
+### STAR 3 — BRIM Financial Integration
+- **Situation**: Billing data in MBS needed to flow into Lumen's revenue management system (BRIM) for financial reporting and journal entries.
+- **Task**: Build a reliable bidirectional integration between MBS and BRIM.
+- **Action**: Designed the `MbsBrimFileController` and a full service layer (`MbsBrimDailyFeedService`, `MbsBrimAccrualsService`, `MbsBrimPaymentTransactionsService`, etc.) that format billing data as JSON, authenticate via Basic Auth, and POST to BRIM endpoints. Implemented inbound parsing of BRIM responses and storage of `InboundJson`/`OutboundJson` records as a durable queue.
+- **Result**: Real-time financial data synchronization between the billing system and the revenue management platform, enabling accurate daily accrual and payment reporting.
+
+---
+
+## K. Knowledge Gaps & Next Files to Review
+
+| What Is Unknown | Files/Code to Inspect Next |
+|---|---|
+| Exact REST endpoint for GUI → API calls | `mbs-app-GUI/src/main/java/com/ctl/mbs/helper/RestClient.java` and `BNCHelper.java` |
+| Full approval workflow | `ApprovalController.java`, `ApprovalServiceImpl.java`, `AssignDetails` entity |
+| GUI application.properties (DB config, API URL) | `mbs-app-GUI/mbsgui-master/src/main/resources/application.properties` |
+| ATC workflow statuses (full list) | `ATCConstant.java`, `WorkflowTransitionService.java` |
+| How Adobe Sign is invoked | ATC `service/` directory — look for `AdobeSign` or `DocumentController.java` |
+| CPPM system (what it is) | `CppmMasterData` entity, `CPPMMasterDataController.java`, `CPPMMasterDataService.java` |
+| OCC data input format and upload | `MbsFileController.java` in API, `OCC.jsp` |
+| ActiveMQ message types | `MbsMessageProducer.java`, `activemq/` package in GUI |
+| Exact tax API request/response format | `cgs.properties`, `MbsBrimTaxServiceImpl.java` |
+| How `LegacyProductXref` bridges legacy to MBS codes | `LegacyProductXrefRepository.java`, `DataMappingController.java` |
+| Deployment scripts / Kubernetes manifests | `mbs-app-GUI/cicd/k8s/deployment.tmpl`, `Dockerfile` |
+| How batch is triggered in production | `mbs-app-BATCH/bin/` scripts, `MbsTaxComputeDetail.sh` |
