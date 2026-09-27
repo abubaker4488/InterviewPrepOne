@@ -1,0 +1,972 @@
+User: You are analyzing my entire workspace which contains multiple interconnected applications of a telecom billing platform used at Lumen Technologies.
+ 
+Inside this workspace there are multiple related projects.
+ 
+Examples include:
+ 
+* API application (Spring Boot backend)
+* GUI application (Spring Boot + JSP)
+* Batch processing application
+* ATC application (React + Spring Boot)
+* Shared libraries
+* Configuration files
+* Deployment files
+ 
+Task:
+ 
+First do NOT explain architecture.
+ 
+Only map the workspace.
+ 
+Analyze entire folder structure and identify:
+ 
+1. How many independent applications/projects exist.
+ 
+2. For each project identify:
+ 
+* Project name
+* Purpose
+* Framework used
+* Java version
+* Build tool
+* Main entry point
+* Whether it is:
+ 
+  * API
+  * UI
+  * Batch
+  * Scheduler
+  * Integration layer
+  * Shared library
+ 
+3. Identify dependencies between projects.
+ 
+Check:
+ 
+* pom.xml dependencies
+* internal jars
+* project references
+* package imports
+ 
+4. Identify all technologies used globally.
+ 
+Examples:
+ 
+* Spring Boot
+* JSP
+* React
+* Hibernate
+* Oracle
+* REST APIs
+* Batch processing
+* Kafka
+* JMS
+* Scheduling
+* Security
+* Docker
+* Kubernetes
+ 
+Output only:
+ 
+A. Workspace structure
+B. Project relationships
+C. Technology stack
+D. Which project appears most business critical
+ 
+Do NOT assume anything unsupported by code.
+ 
+
+GitHub Copilot: Read [](file:///c%3A/MBS_PROJECTS)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/README.md)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/pom.xml)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/pom.xml)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/pom.xml)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/README.md)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/frontend/package.json)
+
+Searched for files matching `**/*Application.java`, 3 matches
+
+Searched for files matching `**/pom.xml`, 4 matches
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/webapp)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/SpringBootMbsApplication.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/DemoApplication.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/MBSApplication.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/webapp/WEB-INF)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/resources/application.properties)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/resources/application.properties)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/resources/application.properties#1-1), lines 1 to 100
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/controller)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/controller)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/controller)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/webapp/WEB-INF/jsp)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/cicd)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/activemq)
+
+Searched for regex `com\.lumen\.mbs|com\.ctl\.mbs|com\.lumen\.atc` (`**/*.java`), 50 results
+
+Searched for regex `api\.url|MbsApi|SpringBootMBS|/MbsApi/` (`**/*.java`), 10 results
+
+Searched for regex `localhost:8080|axios\.|fetch\(|api\/` (`**/*.js*`), 11 results
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/frontend/src/pages)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/frontend/src/api)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/service)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/helper)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/repository)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/api)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/billingValidateCreate)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/service)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/entity)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/config)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/utility)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/repository)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/api/billingService)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/api/service)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/customerBilling)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/PostPayment)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/invoiceCancel)
+
+Searched for regex `@Scheduled|@EnableScheduling|@Scheduler` (`**/*.java`), no results
+
+Searched for regex `spring-batch|@EnableBatchProcessing|JobBuilderFactory|StepBuilderFactory` (`**/*.java`), no results
+
+Searched for regex `kafka|KafkaTemplate|@KafkaListener` (`**/*.java`), no results
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/Dockerfile)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/cicd/k8s/deployment.tmpl)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/cicd/jenkins/Jenkinsfile#1-1), lines 1 to 200
+
+Searched for regex `JmsTemplate|@JmsListener|jms\.|activemq` (`**/*.java`), 30 results
+
+Searched for regex `WatchService|DirectoryWatcher|@Scheduled|poll|watch` (`**/atc/**/*.java`), 29 results
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/service/DirectoryWatcher.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/controller/AuthController.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/controller/EngineerController.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/controller/CustomerController.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/activemq/MbsMessageJMSConfig.java)
+
+I have enough evidence to map the workspace. Below is the factual mapping — every claim is anchored to a file present in the workspace.
+
+---
+
+## A. Workspace structure
+
+Top-level: MBS_PROJECTS
+
+There are **3 independent applications** in this workspace (4 deployable units counting the ATC backend + ATC frontend separately). The bin folder is a duplicate copy of `mbsgui-master/` (mirrored `src/`, pom.xml, Dockerfile); it is not a separate project. cicd contains only build/deploy assets (Jenkins, Kubernetes, SonarQube, Dockerfile template) — not an application.
+
+### 1. mbs-app-GUI — MBS GUI web application
+- **Project name (artifact):** `com.ctl:mbsgui` (war finalName `mbsgui`) — pom.xml
+- **Purpose (from code):** End-user MBS web UI — billing, payments, adjustments, OCC, reports, customer dashboard, error correction, market message, registration, login (JSP screens in jsp).
+- **Framework:** Spring Boot 2.1.8.RELEASE, Spring MVC + JSP (JSTL, tomcat-embed-jasper), Spring Data JPA, Spring LDAP, Spring JMS + ActiveMQ — pom.xml
+- **Java version:** 1.8 — pom.xml
+- **Build tool:** Maven; packaged as `war` — pom.xml
+- **Main entry point:** `com.ctl.mbs.MBSApplication` (extends `SpringBootServletInitializer`) — MBSApplication.java
+- **Type:** UI (server-rendered JSP) with an embedded integration layer (calls the API + publishes to ActiveMQ)
+- **Port:** 2019 — application.properties
+
+### 2. mbs-app-API — MBS REST API backend
+- **Project name (artifact):** `com.lumen:SpringBootMBS` (war finalName `MbsApi`) — pom.xml
+- **Purpose (from code):** Backend REST services for customer billing, adjustments, post-payment, invoice cancel, customer detail, bill download — controllers in controller and service modules `billingValidateCreate`, `customerBilling`, `customerPaymentInfo`, `PostPayment`, `invoiceCancel`.
+- **Framework:** Spring Boot 2.5.6, Spring Web (REST), Spring Data JPA, springdoc-openapi (Swagger UI), Jackson, Oracle JDBC — pom.xml
+- **Java version:** 1.8 — pom.xml
+- **Build tool:** Maven; packaged as `war` with Maven Wrapper (`mvnw`) — pom.xml
+- **Main entry point:** `com.lumen.mbs.SpringBootMbsApplication` — SpringBootMbsApplication.java (with `ServletInitializer`)
+- **Type:** API
+- **Context path:** `/SpringBootMBS` — application.properties
+
+### 3. atc — ATC application (2 deployables: Spring Boot backend + React frontend)
+
+#### 3a. backend
+- **Project name (artifact):** `com.example:demo` — pom.xml
+- **Purpose (from code):** Auth (LDAP), engineer project lookup (CPPM master data), app properties, and an Excel ingestion watcher — controllers: `AuthController` (AuthController.java), `EngineerController` (EngineerController.java), `MasterProjectController`, `AppPropertiesController`.
+- **Framework:** Spring Boot 3.2.2, Spring Web, Spring Data JPA, Spring Security, Spring LDAP 3.0.0, Apache POI 5.2.3 (Excel), Oracle JDBC, H2 (runtime) — pom.xml
+- **Java version:** 17 — pom.xml
+- **Build tool:** Maven; default `jar`
+- **Main entry point:** `com.lumen.atc.DemoApplication` — DemoApplication.java
+- **Type:** API + Integration layer (file-drop ingestion). The `DirectoryWatcher` uses a `WatchService` thread (started from `@PostConstruct`) to ingest `.xlsx` files dropped in `app.file.watch-directory` — DirectoryWatcher.java. This is **not** Spring Batch and **not** `@Scheduled` (neither annotation appears anywhere in the workspace).
+
+#### 3b. frontend
+- **Project name:** `atc-frontend` — package.json
+- **Purpose (from code):** React SPA with Login page and Engineer page calling the ATC backend — LoginPage.jsx, EngineerPage.jsx, authApi.js
+- **Framework:** React 18, react-router-dom 6, axios, Create React App (react-scripts 5) — package.json
+- **Build tool:** npm
+- **Main entry point:** index.js → App.js
+- **Type:** UI (SPA), proxies to backend at `http://localhost:8080` — package.json
+
+### What is NOT present in this workspace (despite the prompt listing them as examples)
+- **No Batch project** — no Spring Batch dependency, no `@EnableBatchProcessing`, no `JobBuilderFactory`/`StepBuilderFactory` anywhere.
+- **No Scheduler project** — no `@Scheduled` / `@EnableScheduling` anywhere.
+- **No Kafka** — no Kafka dependency or `@KafkaListener` anywhere.
+- **No shared library module** — there is no Maven module with `<packaging>pom</packaging>` parent, no internal jar dependency between the three projects, and the three pom files have no `<dependency>` referring to each other.
+- **No common `models`/`commons`/`shared` artifact** — each project owns its own `model`/`dto`/`entity` packages.
+
+---
+
+## B. Project relationships
+
+Evidence-based, derived from application.properties, package imports, and HTTP calls:
+
+```mermaid
+flowchart LR
+  subgraph ATC["atc (independent stack)"]
+    REACT["atc/frontend<br/>React SPA<br/>:3000"]
+    ATCBE["atc/backend<br/>Spring Boot 3.2.2 / Java 17<br/>com.lumen.atc<br/>:8080"]
+    FILES[(File drop<br/>app.file.watch-directory)]
+    LDAP1[(LDAP - Spring LDAP)]
+    ORADEV[(Oracle: svc_mbs001d)]
+  end
+
+  subgraph MBS["MBS stack"]
+    GUI["mbs-app-GUI<br/>Spring Boot 2.1.8 / Java 8<br/>JSP + MVC<br/>com.ctl.mbs<br/>:2019"]
+    API["mbs-app-API<br/>Spring Boot 2.5.6 / Java 8<br/>REST<br/>com.lumen.mbs<br/>/SpringBootMBS"]
+    AMQ[(ActiveMQ topic<br/>MBS_BILLING_DATA_TOPIC)]
+    ORAMBS[(Oracle: svc_mbs001d / 001t / 001pp / 001p)]
+  end
+
+  REACT -- "fetch /api/auth, /api/engineer (proxy)" --> ATCBE
+  ATCBE -- "JPA / ojdbc8" --> ORADEV
+  ATCBE -- "Spring LDAP" --> LDAP1
+  FILES -- "WatchService .xlsx" --> ATCBE
+
+  GUI -- "RestTemplate, @Value api.url -> MbsApi/" --> API
+  GUI -- "JmsTemplate publish" --> AMQ
+  GUI -- "JPA / ojdbc8" --> ORAMBS
+  API -- "JPA / ojdbc8" --> ORAMBS
+
+  ATC -. "no code, jar, or HTTP link found" .- MBS
+```
+
+Key facts behind the diagram:
+- **GUI → API (HTTP):** GUI reads `api.url` and calls the API base URL `http://…/MbsApi/` via `RestTemplate`. See `api.url` in application.properties and `@Value("${api.url}")` injection in BNCController.java, OCCController.java, ExpenseController.java, ReferenceTableController.java, `ApprovalServiceImpl`, `BillBalHistoryServiceImpl`. The `RestTemplate` bean is declared in MBSApplication.java.
+- **GUI → ActiveMQ (JMS publish):** Pub/sub on topic `MBS_BILLING_DATA_TOPIC` via `JmsTemplate` configured in MbsMessageJMSConfig.java and used by MbsMessageProducer.java. **No `@JmsListener` consumer exists in this workspace** — the consumer lives elsewhere.
+- **API → DB:** Spring Data JPA repositories under repository, Oracle datasource in application.properties.
+- **GUI ↔ DB:** GUI also holds its own JPA repositories under repository connecting to the same Oracle service name `svc_mbs001d`/`mbs001t`/`svc_mbs001pp`/`svc_mbs001p` as the API. So GUI talks to the DB directly **and** to the API.
+- **React → ATC backend:** `fetch("/api/auth/login", …)` (authApi.js) and `fetch("/api/engineer/projectdata", …)` (EngineerPage.jsx) routed by the CRA dev proxy to `http://localhost:8080` (package.json). Backend exposes those exact paths under `@RequestMapping("/api/auth")` and `@RequestMapping("/api/engineer")`.
+- **ATC ↔ MBS:** No code, configuration, or HTTP reference links them. ATC uses package `com.lumen.atc`; MBS-API uses `com.lumen.mbs`; MBS-GUI uses `com.ctl.mbs`. No cross-imports detected in [grep across all `.java` files].
+- **No internal jar dependency** between any of the three Maven projects (verified by reading all three pom.xml files).
+
+---
+
+## C. Technology stack (only what is actually used in code)
+
+| Category | Technology | Evidence |
+|---|---|---|
+| Backend frameworks | Spring Boot 2.1.8, 2.5.6, 3.2.2 | three pom.xml parents |
+| Web | Spring MVC REST (all 3 backends), JSP + JSTL + tomcat-embed-jasper (GUI only) | GUI pom.xml + `WEB-INF/jsp/*.jsp` |
+| Frontend | React 18, react-router-dom 6, axios, Create React App | package.json |
+| Persistence | Spring Data JPA (Hibernate via Spring Boot defaults; explicit `hibernate.dialect=Oracle10gDialect` in GUI) | GUI `application.properties#L84` |
+| RDBMS | Oracle (ojdbc8) — `svc_mbs001d/t/pp/p` | all three application.properties |
+| In-memory DB | H2 (runtime, ATC backend), HSQLDB (runtime, GUI) | atc/backend pom.xml, GUI pom.xml |
+| Messaging | JMS via ActiveMQ (broker `activemq-broker` 5.15.10, `spring-boot-starter-activemq`) — publish-only pub/sub topic | GUI pom.xml, MbsMessageJMSConfig.java, MbsMessageProducer.java |
+| Security | Spring Security (ATC backend), Spring LDAP (ATC backend + GUI), custom `MbsAuthorizationFilter` (GUI) | pom.xml, MbsLdapUtil.java, MbsAuthorizationFilter.java |
+| Auth flow | Custom LDAP login (ATC `AuthController`/`AuthService`/`LdapClient`); LDAP via Spring LDAP (GUI) | ATC `controller/AuthController.java`, `utility/LdapClient.java` |
+| File ingestion | `java.nio.file.WatchService` (ATC) | DirectoryWatcher.java |
+| Office docs | Apache POI 5.2.3 (ATC), POI 4.1.2 (GUI), iText 5.1.0 (GUI PDFs) | poms |
+| Email | `com.sun.mail:javax.mail` 1.6.2 (`EmailUtility` in GUI) | GUI pom.xml, EmailUtility.java |
+| API docs | springdoc-openapi-ui 1.2.32 (MBS API) | pom.xml |
+| HTTP client | Apache HttpClient 4.5 (ATC backend + MBS API), Spring `RestTemplate` (GUI) | poms + MBSApplication.java |
+| Build | Maven (three pom-based projects), npm (frontend); Maven Wrapper present in mbs-app-API and mbsgui-master | `mvnw` files |
+| Containerization | Docker — Tomcat 9 base image (`tomcat9:2026Q1`) deploying `mbsgui.war` | Dockerfile |
+| Orchestration | Kubernetes Deployment/Service/Ingress templates for GUI | deployment.tmpl, `service.tmpl`, `ingress.tmpl` |
+| CI/CD | Jenkins shared library pipeline (Lumen `jsl-jenkins-shared-library`) for GUI; profiles `dev/dev1/test1/test3/pp/prod` | Jenkinsfile |
+| Code quality | SonarQube (`sonar-maven-plugin`), JaCoCo (GUI) | GUI pom.xml build plugins, `cicd/conf/sonarqube` |
+| Logging | SLF4J / Logback (`logback-spring.xml` in ATC backend) | atc/backend `resources` |
+| Test | Spring Boot Test, JUnit 5 (GUI), JUnit 4 default (ATC, API) | poms |
+
+**Technologies the prompt listed as examples but not found in this workspace:** Spring Batch, dedicated Scheduler, Kafka. (Kubernetes/Docker/Jenkins/SonarQube exist only for mbs-app-GUI; nothing equivalent for mbs-app-API or atc.)
+
+---
+
+## D. Most business-critical project
+
+**mbs-app-API (com.lumen:SpringBootMBS / `MbsApi`)** is the most business-critical project, supported by code-anchored evidence:
+
+1. **It is the only system of record API the GUI talks to.** The GUI's billing, payments, adjustments, OCC, expense, reference-table, and approval flows all read `api.url` (`…/MbsApi/`) and invoke this service — six distinct GUI files inject `@Value("${api.url}")` (BNCController.java, OCCController.java, ExpenseController.java, ReferenceTableController.java, ApprovalServiceImpl.java, BillBalHistoryServiceImpl.java). If `MbsApi` is down, the GUI loses its core billing flows.
+2. **It owns the billing domain logic.** Top-level packages are `billingValidateCreate`, `customerBilling`, `customerPaymentInfo`, `PostPayment`, `invoiceCancel` — i.e., bill validation/creation, customer billing, payments, post-payment, invoice cancellation ([list_dir mbs-app-API/src/main/java/com/lumen/mbs](mbs-app-API/src/main/java/com/lumen/mbs)).
+3. **It is wired to all four Oracle environments** (`dev`, `test`, `preprod`, `prod`) in application.properties, including production credentials — indicating it is the live billing backend.
+4. **The GUI is a presentation layer on top of it.** GUI's `MBSApplication` boots primarily to register a `RestTemplate` and a JSP `ViewResolver` (MBSApplication.java); its business value is exposing `MbsApi` to end users.
+5. **atc is functionally isolated** (auth + engineer/project lookup + Excel ingestion) and not in the billing data path.
+
+Summary: ATC is a standalone React + Spring Boot 3 / Java 17 app with no link to the MBS stack; the MBS stack is a two-tier Spring Boot 2.x / Java 8 system where **mbs-app-GUI (JSP)** front-ends **mbs-app-API** over HTTP and publishes to ActiveMQ, with mbs-app-API being the billing system of record.
+
+User: Now analyze the entire workspace as one interconnected enterprise system.
+ 
+I want complete High Level Design.
+ 
+Tasks:
+ 
+Identify the full architecture.
+ 
+Explain:
+ 
+1. What is the overall business purpose of this system.
+ 
+2. How applications communicate.
+ 
+Map flows such as:
+ 
+GUI → API → Database
+ 
+ATC → API → Database
+ 
+Batch → Database → Invoice generation
+ 
+API → External systems
+ 
+3. Identify all external integrations.
+ 
+Look for:
+ 
+* RestTemplate
+* WebClient
+* External URLs
+* API endpoints
+* Authentication systems
+* Tax systems
+* Billing systems
+* Enterprise integrations
+ 
+4. Identify deployment architecture.
+ 
+Check:
+ 
+* Dockerfiles
+* Kubernetes files
+* WAR packaging
+* Tomcat configs
+* Environment configs
+ 
+Generate:
+ 
+Architecture diagram in text.
+ 
+Example:
+ 
+Users
+→ GUI
+→ API
+→ Service Layer
+→ Oracle Database
+→ Batch Engine
+→ External Systems
+ 
+Separate:
+ 
+High confidence findings
+ 
+Medium confidence findings
+ 
+Unknown areas
+ 
+Do NOT make assumptions.
+ 
+
+GitHub Copilot: Searched for regex `RestTemplate|getForObject|postForObject|exchange\(|getForEntity|postForEntity` (`**/*.java`), 42 results
+
+Searched for regex `http[s]?://|\.corp\.intranet|\.dev\.intranet|adobesign|oauth|accesstoken` (`**/*.java`), 14 results
+
+Searched for regex `http|url|endpoint|host|oauth|ldap|mail|smtp` (`**/*.properties`), 60 results
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/helper/BNCAppConstants.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/api/billingService/apiCall/BillingServiceApiImpl.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/api/service/AcmEchoBack.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/resources/application.properties#100-100), lines 100 to 112
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/helper/RestClient.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/helper/BNCHelper.java#1-1), lines 1 to 100
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/activemq/MbsMessageProducer.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/resources/Ldap.properties)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/resources/Ldap.properties)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/api/service/RestTemplateConfig.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/util)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/config/SecurityConfig.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/utility/LdapClient.java#1-1), lines 1 to 100
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/service/AuthService.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/util/MbsAuthorizationFilter.java#1-1), lines 1 to 100
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/util/MbsLdapUtil.java#1-1), lines 1 to 100
+
+Searched for regex `adobesign|oauth\.clientId|accesstoken\.api|Adobe` (`**/*.java`), no results
+
+Searched for regex `acmcoreservices|ACM|AcmBan|PostPayment|postPayment` (`**/*.java`), 30 results
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/PostPayment/dto)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/invoiceCancel/dto)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/customerPaymentInfo/dto)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/controller/PostPaymentController.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-API/src/main/java/com/lumen/mbs/controller/AdjustmentController.java#1-1), lines 1 to 80
+
+Searched for regex `adobesign|AdobeSign|signDocument|eSignature` (`**/*.java`), no results
+
+Searched for regex `adobesign|adobe|AdobeSign|secure\.in1` (`**/*.java`), no results
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/service)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/resources/application.properties)
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/service/ExcelService.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/atc/backend/src/main/java/com/lumen/atc/controller/MasterProjectController.java)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/model)
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/controller/BNCController.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/controller/BillComputeController.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/util/EmailUtility.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/service/FileSerivceImpl.java#1-1), lines 1 to 60
+
+Searched for regex `mail|smtp|mailgate|MNET|mnet` (`**/*.properties`), 6 results
+
+Searched for regex `mnet|MNET|MnetDataSource|LegacySystem|LEGACY` (`**/*.java`), 20 results
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/mbsgui-master/src/main/java/com/ctl/mbs/controller/BillControlController.java#1-1), lines 1 to 80
+
+Read [](file:///c%3A/MBS_PROJECTS/mbs-app-GUI/cicd/k8s/ingress.tmpl)
+
+Now I have all the evidence needed. Here is the complete High Level Design.
+
+---
+
+## High Level Design — Lumen MBS Telecom Billing Platform
+
+---
+
+### 1. Overall Business Purpose
+
+Evidence source: controller names, model names, JSP screens, API endpoints, and database schemas across all three projects.
+
+This workspace is the **Management Billing System (MBS)** — a telecom billing platform operated by Lumen Technologies (formerly CenturyLink/CTL). It manages end-to-end billing lifecycle for enterprise telecom customers:
+
+- **Bill pull and computation** — pulling invoices from source systems, computing charges, taxes, adjustments
+- **Customer billing management** — customer search, invoice display, PDF bill generation
+- **Payment processing** — posting payments (debit card, credit card, cheque, manual), payment history
+- **Billing adjustments** — adjusting invoices with phrase codes, inter/intra amounts, OCC (One-Time Charges)
+- **Invoice cancellation** — cancelling invoices and reversing bill balance history
+- **Financial approval workflows** — delegated approvals, approval limits
+- **Expense management** — expense vouchers, computations, service rates
+- **Reference data management** — product service details, rates, tax rates, state/tax exemptions
+- **Canned report generation** — PDF and Excel billing reports
+- **Market messaging** — operator messages attached to billing cycles
+- **Capital project tracking (ATC)** — a separate internal tool for engineers to track CPPM (Capital Project Portfolio Management) project data ingested from Excel files
+
+---
+
+### 2. Application Communication Map
+
+#### 2A. MBS Stack: GUI → API → Database
+
+```
+Lumen Internal User (CUID)
+         │
+         ▼ HTTPS (NGINX Ingress)
+┌─────────────────────────┐
+│   mbs-app-GUI            │  Spring Boot 2.1.8 / Java 8
+│   (mbsgui.war / :2019)  │  JSP + Spring MVC
+│                         │
+│  MbsAuthorizationFilter │◄── LDAP Auth (ldaps://Ldapddc.corp.intranet:636)
+│  MbsLdapUtil            │    Service account: mbsapp@ctl.intranet
+│                         │    TLS cert: LumenRootCA.crt
+│  Controllers (23 JSP)   │
+│  ├─ BNCController        │──► RestTemplate → api.url/MbsApi/*
+│  ├─ CustomerController   │──► RestTemplate → api.url/MbsApi/*
+│  ├─ OCCController        │──► RestTemplate → api.url/MbsApi/*
+│  ├─ ExpenseController    │──► RestTemplate → api.url/MbsApi/*
+│  ├─ ReferenceTable       │──► RestTemplate → api.url/MbsApi/*
+│  ├─ ApprovalController   │──► Direct JDBC → MNET Oracle DB
+│  ├─ BillComputeCtrl      │──► JPA (direct)
+│  ├─ PaymentController    │──► JPA (direct)
+│  └─ ReportController     │──► JPA (direct) + iTextPDF
+│                         │
+│  MbsMessageProducer      │──► JMS publish → ActiveMQ topic
+│                         │    MBS_BILLING_DATA_TOPIC
+│                         │    tcp://mbsdev01.dev.intranet:61616
+│                         │
+│  EmailUtility            │──► SMTP → mailgate.qintra.com
+│                         │    From: MBS-DEV-TEST@lumen.com
+└─────────────────────────┘
+         │
+         │ Spring Data JPA (direct, Hibernate / Oracle10gDialect)
+         │ ojdbc8, user=MBSAPP
+         ▼
+┌─────────────────────────┐
+│   Oracle MBS Database    │  svc_mbs001d (dev)
+│                         │  svc_mbs001t (test)
+│                         │  svc_mbs001pp (preprod)
+│   azeus2lorambsn1 /      │  svc_mbs001p (prod)
+│   racorap23/racorap18   │  azeus2lorambsp1 (prod)
+│                         │
+│  ~100 JPA entities:     │
+│  BillInvoice, Payment,  │
+│  BCAdjustment, TaxRate, │
+│  CustomerDetail, OCC,   │
+│  BillBalHistory, etc.   │
+└─────────────────────────┘
+         ▲
+         │ RestTemplate HTTP (Basic auth: MBSUSER:Lumen2022)
+         │
+┌─────────────────────────┐
+│   mbs-app-API            │  Spring Boot 2.5.6 / Java 8
+│   (MbsApi.war)          │  Context: /SpringBootMBS
+│   mbsdev01.dev:8080     │  Swagger: springdoc-openapi-ui
+│                         │
+│  Controllers:           │
+│  ├─ CustomerController  │  GET /customer, POST /customer
+│  ├─ AdjustmentCtrl      │  POST /cancelInvoicee
+│  ├─ PostPaymentCtrl     │  POST /postpayment
+│  ├─ CustomerBillingCtrl │
+│  ├─ CustomerDetailCtrl  │
+│  └─ CustomerPaymentCtrl │
+│                         │
+│  BillingServiceApiImpl  │──► SAP ERP (see §3)
+│  AcmEchoBack (DISABLED) │──► ACM system (commented out)
+└─────────────────────────┘
+```
+
+#### 2B. ATC Stack: React → Spring Boot → Database
+
+```
+Lumen Engineer or Finance User
+         │
+         ▼ HTTP (dev: localhost:3000 proxy)
+┌─────────────────────────┐
+│   atc/frontend           │  React 18 + react-router-dom 6
+│   CRA / npm              │
+│                         │
+│  LoginPage.jsx           │  POST /api/auth/login
+│  EngineerPage.jsx        │  POST /api/engineer/projectdata
+│                         │
+│  (no finance page        │
+│   code found, only       │
+│   redirect defined)      │
+└─────────────────────────┘
+         │ fetch() proxy → :8080
+         ▼
+┌─────────────────────────┐
+│   atc/backend            │  Spring Boot 3.2.2 / Java 17
+│   (com.example:demo)    │
+│                         │
+│  AuthController          │  POST /api/auth/login
+│  │  AuthService          │──► LdapClient
+│  │  LdapClient           │──► LDAP (same server: Ldapddc.corp.intranet:636)
+│  │  UserRoleRepository   │──► Oracle (USER_ROLE table)
+│  │                       │
+│  EngineerController      │  POST /api/engineer/projectdata
+│  │  CppmMasterDataRepo   │──► Oracle (CPPM_MASTER_DATA table)
+│  │                       │
+│  MasterProjectController │  CRUD /api/projects
+│  AppPropertiesController │
+│                         │
+│  DirectoryWatcher        │◄── File system: c:/input_test_files
+│  │  @PostConstruct        │    WatchService (JDK NIO2)
+│  │  ExcelService          │    Triggered on: *.xlsx file creation
+│  │  └─ CppmMasterDataRepo │──► Oracle (saves parsed rows)
+│                         │
+│  SecurityConfig          │  CSRF disabled, CORS permissive (dev mode)
+└─────────────────────────┘
+         │ Spring Data JPA / ojdbc8
+         │ user=MBSAPP, svc_mbs001d (same Oracle server as MBS)
+         ▼
+┌─────────────────────────┐
+│   Oracle MBS Database    │  azeus2lorambsn1.corp.intranet:1521
+│   (shared instance)     │  svc_mbs001d
+│                         │
+│  CPPM_MASTER_DATA        │  project tracking data
+│  USER_ROLE               │  ATC user-role mapping
+│  APP_PROPERTIES          │
+└─────────────────────────┘
+```
+
+#### 2C. ActiveMQ Pub/Sub (Outbound only from this workspace)
+
+```
+mbs-app-GUI
+  BNCController
+    └─► MbsMessageProducer
+          └─► JmsTemplate.convertAndSend("MBS_BILLING_DATA_TOPIC", payload)
+                │ tcp://mbsdev01.dev.intranet:61616  [dev]
+                │ tcp://mbstest01.corp.intranet:61616 [test]
+                ▼
+           ActiveMQ Broker
+                │
+                ▼
+        [SUBSCRIBER NOT IN THIS WORKSPACE]
+        (Likely a batch/processing engine that consumes
+         billing data for downstream processing)
+```
+
+---
+
+### 3. All External Integrations
+
+#### A. SAP ERP — Financial Master Data Validation
+**Source:** BNCAppConstants.java + BillingServiceApiImpl.java
+
+| What | Detail |
+|---|---|
+| Host | `sapprd.corp.intranet:25080` |
+| Auth | HTTP Basic — hardcoded `MBSUSER:Lumen2022` |
+| Protocol | HTTP REST (`/sap/bc/rest/master_data/…`) |
+| Calls | `CO_CODE_URL` — validates Enterprise/Company Code (CO code) |
+| | `COST_CENTER_URL` — validates cost center given company code |
+| | `GL_ACCOUNT_URL` — validates GL accounts for a given company code |
+| | `WBS_CD_URL` — checks if a WBS element exists |
+| Transport | `RestTemplate.exchange()` via `BillingServiceApiImpl` |
+| Direction | MBS API → SAP ERP (outbound only, no inbound) |
+
+#### B. Lumen LDAP (Active Directory) — Authentication
+**Source:** Ldap.properties, MbsLdapUtil.java, LdapClient.java
+
+| What | Detail |
+|---|---|
+| Host | `ldaps://Ldapddc.corp.intranet:636` (LDAPS/TLS) |
+| Service account | `mbsapp@ctl.intranet` |
+| TLS | Custom truststore loaded from `LumenRootCA.crt` (X.509) |
+| Protocol | JNDI `InitialDirContext` — not Spring LDAP API calls |
+| Used by | Both mbs-app-GUI (MbsLdapUtil) and backend (LdapClient) — **identical code and same server** |
+| Purpose | Authenticate users by CUID and password; extract user attributes for session |
+
+#### C. MNET Oracle Database — Legacy Network System
+**Source:** application.properties, ApprovalController.java
+
+| What | Detail |
+|---|---|
+| Host | `RACORAD25-SCAN.TEST.INTRANET:1521/MNET01T` |
+| User | `MBSUSER` |
+| Direction | Direct JDBC connection from GUI `ApprovalController` |
+| Purpose | Reads data from `MNET` — a legacy Lumen network/billing source system |
+| Note | This is a **second Oracle database** separate from the primary MBS Oracle DB |
+
+#### D. ActiveMQ Message Broker
+**Source:** MbsMessageJMSConfig.java, MbsMessageProducer.java
+
+| What | Detail |
+|---|---|
+| Broker | `tcp://mbsdev01.dev.intranet:61616` (dev) / `tcp://mbstest01.corp.intranet:61616` (test) |
+| Topic | `MBS_BILLING_DATA_TOPIC` (pub/sub domain = true) |
+| Auth | user=`admin`, password=`admin` |
+| Direction | GUI publishes only — consumer not present in this workspace |
+| Log message | `"Sending Message for batch processing: "` — indicates downstream batch process |
+
+#### E. ACM System — Accounts Receivable/Collection Management (DISABLED)
+**Source:** AcmEchoBack.java — entire method body is commented out
+
+| What | Detail |
+|---|---|
+| URL (test) | `https://acmcoreservicestest1.test.intranet/api/MBSPayment` |
+| Auth | Basic — `MBSUSER:QwVodqU96Q6ZJVt` (in commented code) |
+| Payload | `List<AcmBanInvoiceRequest>` — BAN (Billing Account Number) + invoice data |
+| Direction | MBS API → ACM (outbound POST) |
+| Status | **Fully commented out** — was used to echo-back payment data to ACM after posting |
+
+#### F. Adobe Sign — eSignature (CONFIGURED, no Java implementation found)
+**Source:** application.properties
+
+| What | Detail |
+|---|---|
+| OAuth Client ID | `ats-886019af-6ef8-4239-8cf4-2e9e3a02c1e3` |
+| Token URL | `https://secure.in1.adobesign.com/api/rest/v6/baseUris` |
+| Status | Properties configured; no implementing Java class found in this workspace |
+
+#### G. SMTP Email Gateway
+**Source:** EmailUtility.java
+
+| What | Detail |
+|---|---|
+| Host | `mailgate.qintra.com` |
+| From | `MBS-DEV-TEST@lumen.com` |
+| Protocol | javax.mail SMTP (no auth, no TLS) |
+| Used for | User notifications triggered from GUI (e.g., approval events) |
+
+---
+
+### 4. Deployment Architecture
+
+#### mbs-app-GUI — Full CI/CD Pipeline with Kubernetes
+
+```
+Developer pushes to GitHub
+         │
+         ▼
+Jenkins Pipeline (jsl-jenkins-shared-library)
+  Targets: dev | dev1 | test1 | test3 | pp | prod
+  Steps:
+  ├─ Authorize (prod only — deployment control knob)
+  ├─ Maven build → mbsgui.war
+  ├─ SonarQube analysis (sonar-maven-plugin 3.7)
+  ├─ JaCoCo coverage gate
+  ├─ Docker build
+  │    FROM nexusprod.corp.intranet:4567/…/tomcat9:2026Q1
+  │    COPY mbsgui-master/target/mbsgui.war /opt/tomcat/webapps/
+  │    EXPOSE 8080
+  └─ kubectl apply → Rancher (multiple clusters)
+         │
+         ▼
+Kubernetes (Rancher)
+  Deployment:
+    Image: nexus-registry/{DOCKER_REPO}/mbs-app-gui:{tag}
+    Replicas: 1
+    Container: tomcat9 + mbsgui.war
+    Port: 8080
+    JVM: -Xms512m -Xmx1024m -XX:MetaspaceSize=300124K
+    Security: runAsUser=2026, readOnlyRootFilesystem=true
+              allowPrivilegeEscalation=false
+    Env: SPRING_PROFILES_ACTIVE=kube-{env}
+    Volumes: tomcat-logs, tomcat-temp, tomcat-work (emptyDir)
+  Service:
+    Type: ClusterIP, port 8080
+  Ingress (NGINX):
+    Host: {prefix}-{env}.{cluster-domain}
+    TLS: enabled, ssl-redirect=true
+    Path: / (prefix)
+  Clusters:
+    Dev:     KUBE_CREDENTIALS (rancher-azure-secret-mbs-dev)
+    Dev1:    KUBE_CREDENTIALS_DEV1 (rancher-secret-dev1)
+    Test1:   KUBE_CREDENTIALS_TEST1 (rancher-azure-secret-mbs-test1)
+    Test3:   KUBE_CREDENTIALS_TEST3 (rancher-secret-test3)
+    PreProd: KUBE_CREDENTIALS_PP (rancher-azure-secret-mbs-PP)
+    Prod:    KUBE_CREDENTIALS_PROD (rancher-azure-secret-mbs-prod)
+```
+
+#### mbs-app-API — WAR, Tomcat, No Docker in Workspace
+
+| Attribute | Value | Source |
+|---|---|---|
+| Packaging | WAR (`mbsApi.war`) | pom.xml |
+| Server (dev active) | `mbsdev01.dev.intranet:8080/MbsApi/` | application.properties |
+| Server (test) | `mbstest01.corp.intranet:8080/MbsApiTest/` | GUI properties |
+| Server (prod) | `mbsprod01.corp.intranet:8080/MbsApiProd/` | GUI properties |
+| Dockerfile | Not present in workspace | |
+| K8s / Jenkins | Not present in workspace | |
+| Entry | `SpringBootServletInitializer` — traditional Tomcat deployment | ServletInitializer.java |
+
+#### atc/backend — JAR, No Deployment Files
+
+| Attribute | Value |
+|---|---|
+| Packaging | JAR (default Spring Boot) |
+| Dockerfile | Not present |
+| K8s / Jenkins | Not present |
+| Port | 8080 (default) |
+| File watch dir | `c:/input_test_files` (dev config — Windows path) |
+
+#### atc/frontend — npm build, No Server Config
+
+| Attribute | Value |
+|---|---|
+| Build | `react-scripts build` → static files |
+| Dev server | `:3000` |
+| No Nginx/Docker/K8s config found in workspace | |
+
+---
+
+### Architecture Diagram (Text)
+
+```
+═══════════════════════════════════════════════════════════════
+                    LUMEN MBS PLATFORM
+═══════════════════════════════════════════════════════════════
+
+INTERNAL USERS (CUIDs via Lumen AD)
+         │                              │
+    MBS Billing Users              Engineers / Finance
+         │                              │
+         ▼                              ▼
+  ┌──────────────┐              ┌──────────────────┐
+  │  mbs-app-GUI │              │  atc/frontend     │
+  │  JSP + Spring│              │  React 18 SPA     │
+  │  MVC / :2019 │              │  port :3000        │
+  │  Kubernetes  │              └────────┬─────────┘
+  │  (6 envs)    │                       │ fetch proxy
+  └──────┬───────┘                       ▼
+         │                     ┌──────────────────┐
+         │ LDAP auth           │  atc/backend      │
+         ▼                     │  Spring Boot 3.2  │
+  ┌──────────────┐◄────────────┤  Java 17 / :8080  │
+  │  Lumen LDAP  │  same LDAP  │                  │
+  │  Ldapddc     │  server     │  Auth / CPPM     │
+  │  :636 LDAPS  │             │  DirectoryWatcher│
+  └──────────────┘             └────────┬─────────┘
+         │                              │
+         │ RestTemplate                 │ JPA
+         ▼                             ▼
+  ┌──────────────┐             ┌──────────────────┐
+  │  mbs-app-API │             │  Oracle DB        │
+  │  Spring Boot │─────────────► (shared instance) │
+  │  2.5.6 Java 8│    JPA      │  svc_mbs001d/t/pp│
+  │  /SpringBoot │             │  /p              │
+  │  MBS.war     │             │  MBSAPP user      │
+  └──────┬───────┘             └──────────────────┘
+         │                              ▲
+         │ HTTP Basic auth              │ direct JDBC
+         │ /sap/bc/rest/               │ (MNET only)
+         ▼                             │
+  ┌──────────────┐             ┌──────────────────┐
+  │  SAP ERP     │             │  MNET Oracle DB   │
+  │  sapprd:25080│             │  RACORAD25:1521   │
+  │  Validates:  │             │  MNET01T          │
+  │  CO codes    │             │  (legacy source)  │
+  │  Cost center │             └──────────────────┘
+  │  GL accounts │
+  │  WBS codes   │
+  └──────────────┘
+
+  mbs-app-GUI
+       │
+       │ JMS publish (JmsTemplate)
+       ▼
+  ┌──────────────┐
+  │  ActiveMQ    │  MBS_BILLING_DATA_TOPIC
+  │  :61616      │─────────────────────────►[EXTERNAL BATCH]
+  └──────────────┘                          (consumer not in
+                                             this workspace)
+
+  mbs-app-GUI                    mbs-app-GUI
+       │                              │
+       │ javax.mail SMTP              │ iTextPDF
+       ▼                             ▼
+  ┌──────────────┐             ┌──────────────┐
+  │  mailgate    │             │  PDF Bills /  │
+  │  qintra.com  │             │  Reports      │
+  └──────────────┘             │  (streamed)   │
+                               └──────────────┘
+
+  ┌──────────────┐
+  │  File System │──► .xlsx drop ──► atc/backend
+  │ c:/input_test│    DirectoryWatcher + ExcelService
+  │ _files/      │    saves to Oracle CPPM_MASTER_DATA
+  └──────────────┘
+
+  ┌──────────────────────────────────┐  CONFIGURED / NOT ACTIVE
+  │  Adobe Sign                      │  (properties only, no Java impl)
+  │  secure.in1.adobesign.com        │  atc/backend
+  └──────────────────────────────────┘
+  ┌──────────────────────────────────┐  DISABLED IN CODE
+  │  ACM Core Services               │  (entire method commented out)
+  │  acmcoreservicestest1.test.       │  mbs-app-API → POST /api/MBSPayment
+  │  intranet/api/MBSPayment         │
+  └──────────────────────────────────┘
+```
+
+---
+
+### Confidence Classification
+
+#### HIGH CONFIDENCE (direct code evidence)
+
+| Finding | Evidence file |
+|---|---|
+| GUI calls MBS API via `RestTemplate` + `api.url` property | application.properties, 6 `@Value("${api.url}")` injections |
+| Both GUI and API connect to same Oracle instance (`svc_mbs001d`) | Both application.properties files, ojdbc8 dependency |
+| GUI publishes to ActiveMQ topic `MBS_BILLING_DATA_TOPIC` | MbsMessageProducer.java, MbsMessageJMSConfig.java |
+| MBS API validates SAP CO codes / cost centers / GL accounts / WBS via HTTP Basic auth | BillingServiceApiImpl.java, BNCAppConstants.java |
+| LDAP authentication via `ldaps://Ldapddc.corp.intranet:636` used by both GUI and ATC | Ldap.properties, LdapClient.java |
+| GUI has direct JDBC connection to MNET Oracle DB | application.properties, ApprovalController.java |
+| ATC backend watches a file system directory for `.xlsx` files and ingests to Oracle | DirectoryWatcher.java, ExcelService.java |
+| ATC and MBS are fully independent stacks with no code or HTTP link between them | No cross-imports, no cross-service URL references found |
+| mbs-app-GUI is fully containerized and deployed via Jenkins → Docker → Kubernetes (Rancher) across 6 environments | Dockerfile, deployment.tmpl, Jenkinsfile |
+| mbs-app-API and ATC have no Docker/K8s files in this workspace | File search confirmed 1 Dockerfile total |
+| Email sent via `mailgate.qintra.com` (Qwest/CenturyLink internal mail relay) | EmailUtility.java |
+
+#### MEDIUM CONFIDENCE (code exists but is incomplete or partially active)
+
+| Finding | Reason for medium confidence |
+|---|---|
+| ActiveMQ consumer is a separate batch engine | Log message says "for batch processing" — consumer code exists but not in this workspace |
+| ATC Adobe Sign integration | OAuth credentials configured in application.properties but no implementing Java class found in this workspace |
+| MNET data is used in the approval workflow | `ApprovalController` injects MNET JDBC properties; the actual JDBC queries are in a separate method body not fully read |
+| `RestClient.ALLOWED_HOSTS` only permits `localhost` | This blocks all outbound GUI→API calls in production unless overridden elsewhere; this may be a security hardening artifact applied after original code |
+| ATC shares the same Oracle `svc_mbs001d` instance as MBS | The application.properties points to the same Oracle server — they may share tables or use separate schemas; schema segregation not confirmed |
+
+#### UNKNOWN / NOT DETERMINABLE FROM THIS WORKSPACE
+
+| Unknown | What is missing |
+|---|---|
+| ActiveMQ consumer / batch engine | The subscriber of `MBS_BILLING_DATA_TOPIC` — its identity, technology, and processing logic — is not in this workspace |
+| ACM system contract | AcmEchoBack.java is fully commented out; the real ACM system behavior, whether it is live in production, and the current integration mechanism are not in this workspace |
+| Adobe Sign implementation (ATC) | Properties exist, Java implementation absent |
+| mbs-app-API deployment pipeline | No Dockerfile, no Jenkinsfile, no K8s templates found for mbs-app-API |
+| ATC deployment pipeline | No Dockerfile, no Jenkinsfile, no K8s templates found for either ATC project |
+| Tax system integration | GUI has `TaxComputeService`, `TaxRate`, `TaxExemption` — all appear to use the local Oracle DB; no outbound tax API call found in code |
+| BRSP (referenced in comments of properties files) | `MBSBRSP` user / `BRSP` context referenced in commented datasource lines — purpose and role unknown from this workspace |
+| Number and schema of Oracle schemas | `MBSAPP`, `MBSOWNER`, `MBSBRSP`, `MBSUSER` all appear as DB users across files; schema partitioning is not documented in this workspace |
+| Whether ATC and MBS share Oracle schema or just the Oracle server | Both connect to `svc_mbs001d` but table names overlap would need a schema comparison |
