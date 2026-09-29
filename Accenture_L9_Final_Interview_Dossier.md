@@ -124,7 +124,7 @@ Accenture L9 is typically a **Team Lead / Consultant** level: the person who own
 
 ## 2.2 Sixty-second version
 
-> "MBS is Lumen's billing platform for enterprise and carrier customers. Customers are partitioned into **subsystems**, each with its own billing cycle date. For each cycle, a batch computes the bill in stages: rating usage against product rates, one-time charges, tax from an external tax API by service address, applying payments and adjustments, then formatting the PDF invoice. Billing agents review the results before release.
+> "MBS is Lumen's billing platform for enterprise and carrier customers. Customers are partitioned into **subsystems**, each with its own billing cycle date. For each cycle, a batch computes the bill in stages: rating usage and one-time charges against product rates, billing (applying payments and adjustments), tax from an external tax API by service address, then formatting the PDF invoice. Expenses and their voucher approvals run on a side track. Billing agents review the results before release.
 >
 > Technically it's a set of Spring Boot applications on a shared **Oracle** database: a core REST API that holds the billing logic, a JSP-based operations GUI for billing agents, a newer React + Spring Boot app called ATC for construction-project billing, and a legacy batch engine that was being migrated into the API.
 >
@@ -134,7 +134,7 @@ Accenture L9 is typically a **Team Lead / Consultant** level: the person who own
 
 > "**Business problem:** Lumen bills enterprise and carrier customers every month, and these bills are revenue. A wrong bill costs more than a late one: it means disputes, credits and audit problems. So the system is built around correctness and human checkpoints.
 >
-> **How it works:** Customers belong to subsystems, each with a bill cycle date. For a cycle, the batch picks the customers eligible in a control table and runs the stages: **rating** (usage × rate by product code into BILL_COMPUTE), **one-time charges and expenses** (with an approval workflow for vouchers above a user's dollar limit), **taxing** (an external tax service called with the service address and zip code), **balance** (payments and adjustments applied), and **formatting** (the PDF invoice, with totals stored in BILL_INV_FILE). Agents review the output in the GUI before invoices are released to delivery and downstream finance.
+> **How it works:** Customers belong to subsystems, each with a bill cycle date. For a cycle, the batch picks the customers eligible in a control table and runs the stages: **rating** (usage × rate by product code into BILL_COMPUTE), **billing** (payments and adjustments applied, balance history updated), **taxing** (an external tax service called with the service address and zip code), and **formatting** (the PDF invoice, with totals stored in BILL_INV_FILE). One-time charges and expenses run on a side track, with an approval workflow for vouchers above a user's dollar limit. Agents review the output in the GUI before invoices are released to delivery and downstream finance.
 >
 > **Architecture:** Spring Boot REST API (Java 8, WAR on Tomcat) with the billing logic; a JSP GUI for billing agents with LDAP login; ATC, a React + Spring Boot 3 app; all on Oracle. Integrations: SAP BRIM for finance feeds, the external tax service, SAP S4 for cost-center validation, and an internal directory database for approval hierarchies.
 >
@@ -145,7 +145,7 @@ Accenture L9 is typically a **Team Lead / Consultant** level: the person who own
 ## 2.4 Five-minute deep-dive version (structure; expand each point from Part 3/4)
 
 1. **Domain (30s):** enterprise telecom billing; subsystems; monthly cycles; correctness over speed; agent review before release.
-2. **Pipeline (60s):** control tables decide who is billed → rating → OCC/expense + approval → tax (external) → payments/adjustments → formatting → agent review → media/downstream release. Name the tables: CURR_USG, PRODUCT_SERV_RATE → BILL_COMPUTE; EXPENSE_COMPUTE; TAX_COMPUTE; BILL_PAYMENT / BILL_ADJUSTMENTS → BILL_BALHISTORY; BILL_INV_FILE.
+2. **Pipeline (60s):** control tables decide who is billed → rating → billing (payments/adjustments) → tax (external) → formatting → agent review → media/downstream release, with OCC/expense + voucher approval as a side track. Name the tables: CURR_USG, PRODUCT_SERV_RATE → BILL_COMPUTE; EXPENSE_COMPUTE; TAX_COMPUTE; BILL_PAYMENT / BILL_ADJUSTMENTS → BILL_BALHISTORY; BILL_INV_FILE.
 3. **Control model (45s):** `BILLPULL_DETAIL` holds the state of a cycle for a system (run / release / media / rerun). `BILL_CONTROL` holds per-customer stage completion. Each batch stage only picks customers whose earlier stages are complete, so a half-computed bill never gets formatted.
 4. **Architecture (45s):** API / GUI / ATC / legacy batch; shared Oracle; REST between GUI and API; external BRIM, tax, S4, LDAP; GUI on Kubernetes through Jenkins; API on Tomcat servers.
 5. **My work (90s):** Bill Rerun in depth (Part 4); then one line each on BRIM mapping, GUI query fix, log injection, ATC edit consolidation, ATC pipeline.
@@ -185,9 +185,9 @@ I'd call it a **service-oriented, multi-application system rather than microserv
 "Per subsystem and bill cycle date:
 1. **Eligibility.** The cycle row in `BILLPULL_DETAIL` is released (`REL_INDR='Y'`) and not yet run. Customers for that date are listed in `BILL_CONTROL` with `BILL_COMPLETE='N'`.
 2. **Rating.** Usage records in `CURR_USG` for the customer's usage window are multiplied by rates in `PRODUCT_SERV_RATE` by product code, giving `BILL_COMPUTE`. Usage rows are marked processed so they aren't rated twice.
-3. **One-time charges / expenses.** OCC and expense lines give `EXPENSE_COMPUTE`. Expense vouchers are routed for approval, and the approver is found by walking the manager hierarchy until someone's dollar limit covers the amount.
-4. **Taxing.** Product address and zip go to the external tax service, and results land in `TAX_COMPUTE`.
-5. **Balance.** Payments (`BILL_PAYMENT`) and adjustments (`BILL_ADJUSTMENTS`) are applied, updating `BILL_BALHISTORY`.
+3. **Side track: expenses.** Expense lines give `EXPENSE_COMPUTE` and an `EXPENSE_VOUCHER`. Vouchers are routed for approval, and the approver is found by walking the manager hierarchy until someone's dollar limit covers the amount.
+4. **Billing.** Payments (`BILL_PAYMENT`) and adjustments (`BILL_ADJUSTMENTS`) are applied, updating `BILL_BALHISTORY`.
+5. **Taxing.** Product address and zip go to the external tax service, and results land in `TAX_COMPUTE`.
 6. **Formatting.** The PDF invoice is generated, and totals are stored in `BILL_INV_FILE`. Only customers whose earlier stages are complete are formatted.
 7. **Review and release.** Agents review. If something's wrong, they flag a **rerun**; otherwise the invoices are released to media/delivery and downstream feeds."
 **Project connection:** Rerun sits at step 7 (Part 4).
@@ -1482,7 +1482,7 @@ Pick 3–4. Ask the ones whose answers you actually want.
 |---|---|
 | **Business purpose** | Lumen's MBS: monthly billing for enterprise/carrier customers by subsystem; correctness over speed; agents review before release |
 | **Architecture** | Multi-app Spring Boot platform on a shared Oracle DB: core API (Boot 2.5 / Java 8, WAR on Tomcat), ops GUI (Boot 2.1 + JSP, LDAP), ATC (Boot 3.2 / Java 17 + React), legacy batch engine being migrated into the API |
-| **Pipeline** | eligibility (control tables) → rating → OCC/expense + approvals → tax (external) → payments/adjustments → formatting (PDF, BILL_INV_FILE) → review → media release |
+| **Pipeline** | eligibility (control tables) → rating → billing (payments/adjustments) → tax (external) → formatting (PDF, BILL_INV_FILE) → review → media release; expenses + voucher approvals on a side track. Visual version: `diagrams/mbs-billing-pipeline.html` |
 | **Key tables** | BILLPULL_DETAIL (cycle: RUN/REL/MEDIA/RERUN), BILL_CONTROL (customer: COMPLETE, TYPE, stage flags), CURR_USG, PRODUCT_SERV_RATE, BILL_COMPUTE, EXPENSE_COMPUTE, TAX_COMPUTE, EXPENSE_VOUCHER, ASSIGN_DETAILS, BILL_PAYMENT, BILL_ADJUSTMENTS, BILL_BALHISTORY, BILL_INV_FILE |
 | **Integrations** | SAP BRIM (finance feeds; inbound via Kafka pipeline owned by a teammate), external tax service (OAuth2), SAP S4 validation, directory DB (approvals), LDAP, SMTP, ActiveMQ |
 | **My responsibilities** | Bill Rerun stabilization (owner); BRIM charge mapping (CPPEWMB-5443); Bill Preview / Bill Process query and filter changes; log-injection fix; ATC composite edit API; ATC GitHub Actions pipeline; production support in billing windows |

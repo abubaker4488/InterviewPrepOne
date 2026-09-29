@@ -1,0 +1,468 @@
+<title>MBS Billing Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F2F4F6; --surface:#FFFFFF; --ink:#16202B; --muted:#5A6674; --line:#CBD3DC;
+  --read:#2F6FAE; --read-bg:#EAF1F9; --write:#A85C0A; --write-bg:#FBF1E3;
+  --ext:#6E7A87; --stage:#E3EAF1; --stage2:#EEF1F4;
+  --flag:#2B7A55; --flag-bg:#E3F2EA; --rerun:#B8372A; --rerun-bg:#FBE9E6;
+  --end:#DDE3E9;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E141B; --surface:#151D26; --ink:#E4EAF0; --muted:#95A2B0; --line:#2E3A47;
+    --read:#79B0E6; --read-bg:#16263A; --write:#E6A65A; --write-bg:#2F2415;
+    --ext:#8E9AA8; --stage:#1D2936; --stage2:#18222D;
+    --flag:#82D3AA; --flag-bg:#15302A; --rerun:#F0806F; --rerun-bg:#3A1C19; --end:#222C37;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E141B; --surface:#151D26; --ink:#E4EAF0; --muted:#95A2B0; --line:#2E3A47;
+  --read:#79B0E6; --read-bg:#16263A; --write:#E6A65A; --write-bg:#2F2415;
+  --ext:#8E9AA8; --stage:#1D2936; --stage2:#18222D;
+  --flag:#82D3AA; --flag-bg:#15302A; --rerun:#F0806F; --rerun-bg:#3A1C19; --end:#222C37;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;padding:28px 20px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:44px}
+header{display:grid;gap:14px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--cond);font-weight:600;font-size:clamp(30px,4.4vw,44px);line-height:1.05;margin:0;text-wrap:balance}
+h2{font-family:var(--cond);font-weight:600;font-size:24px;margin:0;text-wrap:balance}
+h3{font-family:var(--cond);font-weight:600;font-size:18px;margin:0}
+p{margin:0;max-width:72ch}
+.lede{color:var(--muted);font-size:16px}
+code,.mono{font-family:var(--mono);font-size:.88em}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted);align-items:center}
+.key{display:inline-flex;align-items:center;gap:7px}
+.sw{width:22px;height:13px;border-radius:3px;border:1.5px solid}
+.sw.read{border-color:var(--read);background:var(--read-bg)}
+.sw.write{border-color:var(--write);background:var(--write-bg)}
+.sw.ext{border-color:var(--ext);border-style:dashed}
+.sw.flag{border-color:var(--flag);background:var(--flag-bg);border-radius:8px}
+.sw.rr{border-color:var(--rerun);border-style:dashed}
+section{display:grid;gap:16px}
+.sec-head{display:grid;gap:6px}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.scroll svg{display:block;width:100%;height:auto;min-width:1080px}
+.scroll.sm svg{min-width:760px}
+figcaption{font-size:13.5px;color:var(--muted);max-width:none}
+figcaption b{color:var(--ink);font-weight:600}
+/* svg styling via page css (themeable) */
+svg text{fill:var(--ink)}
+.p-read{fill:var(--read-bg);stroke:var(--read);stroke-width:1.2}
+.p-write{fill:var(--write-bg);stroke:var(--write);stroke-width:1.2}
+.p-ext{fill:none;stroke:var(--ext);stroke-width:1.2;stroke-dasharray:4 3}
+.p-note{fill:none;stroke:var(--line);stroke-width:1.2;stroke-dasharray:2 3}
+.stage{fill:var(--stage);stroke:var(--ink);stroke-width:1.4}
+.stage2{fill:var(--stage2);stroke:var(--muted);stroke-width:1.2}
+.stage-end{fill:var(--end);stroke:var(--muted);stroke-width:1.2}
+.stage-rr{fill:var(--rerun-bg);stroke:var(--rerun);stroke-width:1.4}
+.chip{fill:var(--flag-bg);stroke:var(--flag);stroke-width:1}
+.t-mono{font-family:var(--mono);font-size:11.5px}
+.t-num{font-family:var(--mono);font-size:13px;font-weight:600;fill:var(--muted)!important}
+.t-stage{font-family:var(--cond);font-size:15.5px;font-weight:600}
+.t-sub{font-family:var(--sans);font-size:11.5px;fill:var(--muted)!important}
+.t-code{font-family:var(--mono);font-size:10.5px;fill:var(--muted)!important}
+.t-chip{font-family:var(--mono);font-size:11px;font-weight:600;fill:var(--flag)!important}
+.t-lane{font-family:var(--mono);font-size:11px;letter-spacing:.08em;fill:var(--muted)!important}
+.t-lbl{font-family:var(--sans);font-size:12px;fill:var(--muted)!important}
+.t-lbl-r{font-family:var(--sans);font-size:12px;fill:var(--rerun)!important}
+.t-note{font-family:var(--sans);font-size:11.5px;font-style:italic;fill:var(--muted)!important}
+.t-rerun{font-family:var(--mono);font-size:12px;font-weight:600;fill:var(--rerun)!important}
+.rerun-bg{fill:var(--bg);stroke:var(--rerun);stroke-width:1}
+.a-flow{stroke:var(--ink);stroke-width:1.6;fill:none}
+.a-read{stroke:var(--read);stroke-width:1.5;fill:none}
+.a-write{stroke:var(--write);stroke-width:1.5;fill:none}
+.a-rerun{stroke:var(--rerun);stroke-width:1.8;fill:none;stroke-dasharray:7 5}
+.ah{fill:var(--ink)} .ahr{fill:var(--rerun)}
+/* rerun steps */
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:8px;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px 92px 1fr;gap:12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.steps li::before{content:counter(s);font-family:var(--mono);font-weight:600;color:var(--muted);font-size:14px}
+.tag{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-align:center;border-radius:5px;padding:2px 0;border:1px solid}
+.tag.del{color:var(--rerun);border-color:var(--rerun);background:var(--rerun-bg)}
+.tag.reset{color:var(--write);border-color:var(--write);background:var(--write-bg)}
+.tag.hand{color:var(--flag);border-color:var(--flag);background:var(--flag-bg)}
+.mine{font-family:var(--mono);font-size:11px;color:var(--flag);margin-left:6px}
+.note{font-size:13.5px;color:var(--muted);border-left:3px solid var(--line);padding-left:12px;max-width:none}
+/* stage cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:10px;align-content:start}
+.card .hd{display:flex;align-items:baseline;gap:10px}
+.card .n{font-family:var(--mono);font-weight:600;color:var(--muted)}
+.card dl{margin:0;display:grid;grid-template-columns:78px 1fr;gap:6px 10px;font-size:13.5px}
+.card dt{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding-top:2px}
+.card dd{margin:0}
+.say{font-size:13.5px;background:var(--stage2);border-radius:6px;padding:8px 10px}
+.say::before{content:"Say it: ";font-weight:600}
+.ev{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+/* table index */
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:13.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--stage2)}
+td:first-child{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.rr-del{color:var(--rerun);font-weight:600}
+.rr-reset{color:var(--write);font-weight:600}
+footer{font-size:13px;color:var(--muted)}
+@media (max-width:560px){ .steps li{grid-template-columns:26px 1fr} .steps li .tag{grid-column:2;justify-self:start;padding:2px 8px} .steps li > span:last-child{grid-column:1 / -1} }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Interview reference · Lumen MBS · batch billing</div>
+  <h1>MBS Billing Pipeline</h1>
+  <p class="lede">One bill cycle, from choosing which customers to bill to releasing the invoices. For every stage: the tables it reads, the tables it writes, and the flag it leaves behind. Plus the Bill ReRun loop that takes a billed cycle back to the start.</p>
+  <div class="legend" aria-label="Legend">
+    <span class="key"><span class="sw read"></span>table read</span>
+    <span class="key"><span class="sw write"></span>table written</span>
+    <span class="key"><span class="sw ext"></span>outside system or person</span>
+    <span class="key"><span class="sw flag"></span>BILL_CONTROL flag set</span>
+    <span class="key"><span class="sw rr"></span>Bill ReRun path</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <h2>The pipeline for one system and bill date</h2>
+    <p>Stages run left to right, in the order of the API's complete-invoice workflow (rating → billing → taxing → formatting). When a table shows up in a later stage's READS column, that's the hand-off between stages.</p>
+  </div>
+  <figure>
+    <div class="scroll"><svg viewBox="0 0 1460 760" role="img" aria-label="MBS billing pipeline: six stages from customer selection to review and release, each with the tables it reads above it, the tables it writes below it and the BILL_CONTROL flag it sets, plus a side track for expenses and voucher approval, and the Bill ReRun loop that resets a cycle back to customer selection.">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker>
+</defs>
+<text class="t-lane" x="34" y="60">READS</text>
+<text class="t-lane" x="34" y="386">WRITES</text>
+<text class="t-lane" x="34" y="518">BILL_CONTROL FLAG SET (per customer)</text>
+
+<!-- col 0: select customers -->
+<rect class="p-ext" x="34" y="74" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="90">Scheduler · per system</text>
+<rect class="p-read" x="34" y="103" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="119">BILLPULL_DETAIL</text>
+<rect class="p-read" x="34" y="132" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="148">BILL_CONTROL</text>
+<rect class="p-read" x="34" y="161" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="177">CUSTOMER_DETAIL</text>
+<line class="a-read" x1="139" y1="189" x2="139" y2="283" marker-end="url(#ah)"/>
+<rect class="stage" x="34" y="286" width="210" height="74" rx="8"/>
+<text class="t-num" x="46" y="308">0</text><text class="t-stage" x="64" y="308">Select customers</text>
+<text class="t-sub" x="46" y="329">gate: RUN=N · REL=Y · COMPLETE=N</text>
+<text class="t-code" x="46" y="348">BILL_CONTROL + BILLPULL_DETAIL</text>
+<line class="a-write" x1="139" y1="360" x2="139" y2="392" marker-end="url(#ah)"/>
+<rect class="p-note" x="34" y="396" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="412">customer list for (system, date)</text>
+<line class="a-flow" x1="244" y1="323" x2="264" y2="323" marker-end="url(#ah)"/>
+
+<!-- col 1: usage rating -->
+<rect class="p-read" x="266" y="74" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="90">CURR_USG  (usage window)</text>
+<rect class="p-read" x="266" y="103" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="119">PRODUCT_SERV_RATE</text>
+<rect class="p-read" x="266" y="132" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="148">PRODUCT_SERV_CAT</text>
+<rect class="p-read" x="266" y="161" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="177">PRODUCT_SERV_DET</text>
+<rect class="p-read" x="266" y="190" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="206">RATE_BILL_SERVICE_OCC</text>
+<line class="a-read" x1="371" y1="218" x2="371" y2="283" marker-end="url(#ah)"/>
+<rect class="stage" x="266" y="286" width="210" height="74" rx="8"/>
+<text class="t-num" x="278" y="308">1</text><text class="t-stage" x="296" y="308">Usage rating</text>
+<text class="t-sub" x="278" y="329">qty × rate by product code</text>
+<text class="t-code" x="278" y="348">RatingService</text>
+<line class="a-write" x1="371" y1="360" x2="371" y2="392" marker-end="url(#ah)"/>
+<rect class="p-write" x="266" y="396" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="412">BILL_COMPUTE</text>
+<rect class="p-write" x="266" y="425" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="441">BILL_COMPUTE_DETAIL</text>
+<rect class="p-write" x="266" y="454" width="210" height="24" rx="4"/><text class="t-mono" x="276" y="470">CURR_USG  → processed</text>
+<rect class="chip" x="266" y="526" width="210" height="22" rx="11"/><text class="t-chip" x="371" y="541" text-anchor="middle">sets RATING_HOLD = Y</text>
+<line class="a-flow" x1="476" y1="323" x2="496" y2="323" marker-end="url(#ah)"/>
+
+<!-- col 2: billing -->
+<rect class="p-read" x="498" y="74" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="90">BILL_COMPUTE</text>
+<rect class="p-read" x="498" y="103" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="119">BILL_PAYMENT</text>
+<rect class="p-read" x="498" y="132" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="148">BILL_ADJUSTMENTS</text>
+<rect class="p-read" x="498" y="161" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="177">ADJUSTMENT_PHRASE_CODE</text>
+<rect class="p-read" x="498" y="190" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="206">EXPENSE_VOUCHER</text>
+<rect class="p-ext" x="498" y="219" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="235">EPWF / BRIM payment feed</text>
+<line class="a-read" x1="603" y1="247" x2="603" y2="283" marker-end="url(#ah)"/>
+<rect class="stage" x="498" y="286" width="210" height="74" rx="8"/>
+<text class="t-num" x="510" y="308">2</text><text class="t-stage" x="528" y="308">Billing</text>
+<text class="t-sub" x="510" y="329">apply payments + adjustments</text>
+<text class="t-code" x="510" y="348">BatchBillingInvoiceService</text>
+<line class="a-write" x1="603" y1="360" x2="603" y2="392" marker-end="url(#ah)"/>
+<rect class="p-write" x="498" y="396" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="412">BILL_BALHISTORY</text>
+<rect class="p-write" x="498" y="425" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="441">BILL_PAYMENT  (affiliate APAY)</text>
+<rect class="chip" x="498" y="526" width="210" height="22" rx="11"/><text class="t-chip" x="603" y="541" text-anchor="middle">sets BILLING_HOLD = Y</text>
+<line class="a-flow" x1="708" y1="323" x2="728" y2="323" marker-end="url(#ah)"/>
+
+<!-- col 3: taxing -->
+<rect class="p-read" x="730" y="74" width="210" height="24" rx="4"/><text class="t-mono" x="740" y="90">BILL_COMPUTE</text>
+<rect class="p-read" x="730" y="103" width="210" height="24" rx="4"/><text class="t-mono" x="740" y="119">CUSTOMER_DETAIL  (addr, zip)</text>
+<rect class="p-read" x="730" y="132" width="210" height="24" rx="4"/><text class="t-mono" x="740" y="148">TAX_RATE</text>
+<rect class="p-ext" x="730" y="161" width="210" height="24" rx="4"/><text class="t-mono" x="740" y="177">CGS tax API · OAuth2</text>
+<line class="a-read" x1="835" y1="189" x2="835" y2="283" marker-end="url(#ah)"/>
+<rect class="stage" x="730" y="286" width="210" height="74" rx="8"/>
+<text class="t-num" x="742" y="308">3</text><text class="t-stage" x="760" y="308">Taxing</text>
+<text class="t-sub" x="742" y="329">address + zip → external tax</text>
+<text class="t-code" x="742" y="348">BatchTaxingInvoiceService</text>
+<line class="a-write" x1="835" y1="360" x2="835" y2="392" marker-end="url(#ah)"/>
+<rect class="p-write" x="730" y="396" width="210" height="24" rx="4"/><text class="t-mono" x="740" y="412">TAX_COMPUTE</text>
+<rect class="p-write" x="730" y="425" width="210" height="24" rx="4"/><text class="t-mono" x="740" y="441">TAX_COMPUTE_DETAIL</text>
+<rect class="chip" x="730" y="526" width="210" height="22" rx="11"/><text class="t-chip" x="835" y="541" text-anchor="middle">sets TAXING_HOLD = Y</text>
+<line class="a-flow" x1="940" y1="323" x2="960" y2="323" marker-end="url(#ah)"/>
+
+<!-- col 4: formatting -->
+<rect class="p-read" x="962" y="74" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="90">BILL_COMPUTE</text>
+<rect class="p-read" x="962" y="103" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="119">EXPENSE_COMPUTE</text>
+<rect class="p-read" x="962" y="132" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="148">TAX_COMPUTE</text>
+<rect class="p-read" x="962" y="161" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="177">BILL_BALHISTORY</text>
+<rect class="p-read" x="962" y="190" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="206">BILL_INVOICE_VERBAGE</text>
+<rect class="p-read" x="962" y="219" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="235">MARKET_MESSAGE</text>
+<line class="a-read" x1="1067" y1="247" x2="1067" y2="283" marker-end="url(#ah)"/>
+<rect class="stage" x="962" y="286" width="210" height="74" rx="8"/>
+<text class="t-num" x="974" y="308">4</text><text class="t-stage" x="992" y="308">Formatting</text>
+<text class="t-sub" x="974" y="329">picks COMPLETE=Y · RATING, BILLING=Y</text>
+<text class="t-code" x="974" y="348">BatchFormattingInvoiceService</text>
+<line class="a-write" x1="1067" y1="360" x2="1067" y2="392" marker-end="url(#ah)"/>
+<rect class="p-write" x="962" y="396" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="412">BILL_INV_FILE  (totals)</text>
+<rect class="p-write" x="962" y="425" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="441">PDF invoice</text>
+<rect class="chip" x="962" y="526" width="210" height="22" rx="11"/><text class="t-chip" x="1067" y="541" text-anchor="middle">sets FORMATTING_HOLD = Y</text>
+<line class="a-flow" x1="1172" y1="323" x2="1192" y2="323" marker-end="url(#ah)"/>
+
+<!-- col 5: review & release -->
+<rect class="p-ext" x="1194" y="74" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="90">Billing agent · GUI</text>
+<rect class="p-read" x="1194" y="103" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="119">BILL_INV_FILE</text>
+<rect class="p-read" x="1194" y="132" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="148">BILL_COMPUTE · TAX_COMPUTE</text>
+<rect class="p-read" x="1194" y="161" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="177">BILLPULL_DETAIL</text>
+<line class="a-read" x1="1299" y1="189" x2="1299" y2="283" marker-end="url(#ah)"/>
+<rect class="stage" x="1194" y="286" width="210" height="74" rx="8"/>
+<text class="t-num" x="1206" y="308">5</text><text class="t-stage" x="1224" y="308">Review &amp; release</text>
+<text class="t-sub" x="1206" y="329">agent checks, then decides</text>
+<text class="t-code" x="1206" y="348">GUI: Bill Preview / Compare</text>
+<line class="a-write" x1="1299" y1="360" x2="1299" y2="392" marker-end="url(#ah)"/>
+<rect class="p-write" x="1194" y="396" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="412">BILLPULL_DETAIL.MEDIA_INDR = Y</text>
+<rect class="p-write" x="1194" y="425" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="441">or BILLPULL_DETAIL.RERUN_INDR = Y</text>
+<rect class="p-ext" x="1194" y="454" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="470">journal · EDW · BRIM outbound</text>
+
+<!-- side track: expenses and approval -->
+<text class="t-lane" x="34" y="582">SIDE TRACK · ONE-TIME CHARGES, EXPENSES AND VOUCHER APPROVAL (feeds Billing and Formatting)</text>
+<rect class="p-read" x="34" y="596" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="612">EXPENSE_BILL_SERVICE_OCC</text>
+<rect class="p-read" x="34" y="625" width="210" height="24" rx="4"/><text class="t-mono" x="44" y="641">EXPENSE_SERV_RATE</text>
+<line class="a-read" x1="244" y1="622" x2="264" y2="622" marker-end="url(#ah)"/>
+<rect class="stage2" x="266" y="596" width="210" height="53" rx="8"/>
+<text class="t-stage" x="278" y="618">Expense rating</text><text class="t-sub" x="278" y="637">qty × expense rate</text>
+<line class="a-write" x1="476" y1="622" x2="496" y2="622" marker-end="url(#ah)"/>
+<rect class="p-write" x="498" y="596" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="612">EXPENSE_COMPUTE (+DETAIL)</text>
+<rect class="p-write" x="498" y="625" width="210" height="24" rx="4"/><text class="t-mono" x="508" y="641">EXPENSE_VOUCHER</text>
+<line class="a-read" x1="708" y1="637" x2="728" y2="637" marker-end="url(#ah)"/>
+<rect class="stage2" x="730" y="596" width="210" height="53" rx="8"/>
+<text class="t-stage" x="742" y="618">Voucher approval</text><text class="t-sub" x="742" y="637">walk hierarchy until limit ≥ amount</text>
+<rect class="p-read" x="962" y="596" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="612">MBS_APPROVAL_LIMIT</text>
+<rect class="p-ext" x="962" y="625" width="210" height="24" rx="4"/><text class="t-mono" x="972" y="641">MNET user hierarchy · DB</text>
+<line class="a-read" x1="960" y1="608" x2="942" y2="608" marker-end="url(#ah)"/>
+<rect class="p-write" x="1194" y="610" width="210" height="24" rx="4"/><text class="t-mono" x="1204" y="626">ASSIGN_DETAILS  (approver)</text>
+<path class="a-write" d="M835 649 V682 H1299 V637" marker-end="url(#ah)"/>
+
+<!-- bill rerun loop -->
+<path class="a-rerun" d="M1404 342 H1448 V734 H14 V342 H31" marker-end="url(#ahr)"/>
+<rect class="rerun-bg" x="390" y="721" width="680" height="26" rx="13"/>
+<text class="t-rerun" x="730" y="739" text-anchor="middle">Bill ReRun · delete computed rows, revert usage/payment/control flags, cycle back to RUN=N, REL=Y</text>
+</svg></div>
+    <figcaption><b>How to read it:</b> each column is one stage. Tables above a stage are read, tables below are written, and the green chip is the per-customer flag the stage sets in <code>BILL_CONTROL</code>. Formatting only picks customers whose earlier flags are set, so a half-computed bill never becomes an invoice. The side track computes one-time charges and expenses and routes each voucher to an approver whose limit covers it. The dashed red loop is Bill ReRun: it wipes a cycle's computed data and hands the cycle back to stage 0. Scroll sideways on a phone.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Where a bill cycle can be</h2>
+    <p>Stages gate on the cycle row in <code>BILLPULL_DETAIL</code>. Learn these five states and the rerun answers follow from them.</p>
+  </div>
+  <figure>
+    <div class="scroll sm"><svg viewBox="0 0 1080 340" role="img" aria-label="Bill cycle states in BILLPULL_DETAIL: defined, released for billing, billed and in review, released to media. From billed, an agent can flag a rerun. A successful rerun returns the cycle to released for billing; a failed one leaves it flagged.">
+<defs>
+<marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="ahr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahr"/></marker>
+</defs>
+<text class="t-lane" x="20" y="30">BILLPULL_DETAIL · one row per (system, bill pull date)</text>
+
+<rect class="stage" x="20" y="70" width="170" height="72" rx="10"/>
+<text class="t-stage" x="105" y="98" text-anchor="middle">Defined</text>
+<text class="t-code" x="105" y="120" text-anchor="middle">RUN N · REL N</text>
+
+<rect class="stage" x="300" y="70" width="170" height="72" rx="10"/>
+<text class="t-stage" x="385" y="98" text-anchor="middle">Released for billing</text>
+<text class="t-code" x="385" y="120" text-anchor="middle">RUN N · REL Y</text>
+
+<rect class="stage" x="580" y="70" width="170" height="72" rx="10"/>
+<text class="t-stage" x="665" y="98" text-anchor="middle">Billed, in review</text>
+<text class="t-code" x="665" y="120" text-anchor="middle">RUN Y · REL Y · MEDIA N</text>
+
+<rect class="stage-end" x="860" y="70" width="170" height="72" rx="10"/>
+<text class="t-stage" x="945" y="98" text-anchor="middle">Released to media</text>
+<text class="t-code" x="945" y="120" text-anchor="middle">MEDIA Y (or P)</text>
+<text class="t-note" x="945" y="166" text-anchor="middle">rerun blocked from here;</text>
+<text class="t-note" x="945" y="182" text-anchor="middle">fix with adjustments</text>
+
+<rect class="stage-rr" x="580" y="230" width="170" height="72" rx="10"/>
+<text class="t-stage" x="665" y="258" text-anchor="middle">Flagged for rerun</text>
+<text class="t-code" x="665" y="280" text-anchor="middle">RERUN Y</text>
+
+<line class="a-flow" x1="190" y1="106" x2="297" y2="106" marker-end="url(#ah2)"/>
+<text class="t-lbl" x="245" y="96" text-anchor="middle">cycle released</text>
+<line class="a-flow" x1="470" y1="106" x2="577" y2="106" marker-end="url(#ah2)"/>
+<text class="t-lbl" x="525" y="96" text-anchor="middle">billing batch runs</text>
+<line class="a-flow" x1="750" y1="106" x2="857" y2="106" marker-end="url(#ah2)"/>
+<text class="t-lbl" x="805" y="96" text-anchor="middle">agent releases</text>
+
+<line class="a-flow" x1="665" y1="142" x2="665" y2="227" marker-end="url(#ah2)"/>
+<text class="t-lbl" x="673" y="190">agent clicks Bill ReRun (GUI)</text>
+
+<path class="a-rerun" d="M580 266 H385 V145" marker-end="url(#ahr2)"/>
+<text class="t-lbl-r" x="375" y="322">rerun API: every reset step OK → RUN N, RERUN N</text>
+
+<path class="a-rerun" d="M750 248 C 810 240, 810 296, 753 288" marker-end="url(#ahr2)"/>
+<text class="t-lbl-r" x="812" y="272">a step failed → stays flagged, email alert</text>
+</svg></div>
+    <figcaption><b>The rerun window</b> is the "Billed, in review" state: the GUI only shows the Bill ReRun button when RUN=Y, REL=Y and MEDIA=N. The cycle flag is cleared last. If any reset step fails, the cycle stays flagged, so running it again is safe. Once invoices go to media, rerun is closed and corrections go through adjustments.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>What Bill ReRun touches, in code order</h2>
+    <p>From <code>BatchBillRerunServiceImpl.billReRun</code> and <code>BatchBillRerunHelper</code>. The same steps run for one customer, filtered by customer ID. Every step returns true or false, and one false means the cycle doesn't reach step 11.</p>
+  </div>
+  <ol class="steps">
+    <li><span class="tag del">DELETE</span><span><code>BILL_COMPUTE_DETAIL</code>, <code>BILL_COMPUTE</code>: the rated charges.</span></li>
+    <li><span class="tag del">DELETE</span><span><code>EXPENSE_COMPUTE_DETAIL</code>, <code>EXPENSE_COMPUTE</code>: the computed expenses.</span></li>
+    <li><span class="tag del">DELETE</span><span><code>TAX_COMPUTE_DETAIL</code>, <code>TAX_COMPUTE</code>: tax results from the external service.</span></li>
+    <li><span class="tag del">DELETE</span><span><code>BILL_INV_FILE</code>: the invoice records and their totals.</span></li>
+    <li><span class="tag del">DELETE</span><span><code>ASSIGN_DETAILS</code> rows linked to this cycle's expense vouchers. Stale approvals survived until this step existed.<span class="mine">your fix · 3f63398</span></span></li>
+    <li><span class="tag del">DELETE</span><span><code>EXPENSE_VOUCHER</code> for the cycle.</span></li>
+    <li><span class="tag reset">RESET</span><span>Payments and adjustments applied in this cycle (<code>BILL_PAYMENT</code>, <code>BILL_ADJUSTMENTS</code>), so billing applies them again cleanly.</span></li>
+    <li><span class="tag del">DELETE</span><span>Auto-generated affiliate APAY payments in <code>BILL_PAYMENT</code>.</span></li>
+    <li><span class="tag reset">RESET</span><span><code>CURR_USG</code> processed → unprocessed within each customer's usage window, only if usage-based rows existed. An inactive customer or a window mismatch is logged and skipped.<span class="mine">optimized · 8fedd4b</span></span></li>
+    <li><span class="tag reset">RESET</span><span><code>BILL_CONTROL</code>: <code>BILL_COMPLETE</code>, <code>BILL_TYPE</code> and all four stage flags go back to N.</span></li>
+    <li><span class="tag hand">HAND BACK</span><span><code>BILLPULL_DETAIL</code>: RUN=N, REL=Y, RERUN=N, but only if every step above returned true. The next batch run picks the cycle up and bills only customers with <code>BILL_COMPLETE='N'</code>.</span></li>
+    <li><span class="tag hand">SUMMARY</span><span>Rows deleted and updated per table are logged, along with the duration and SUCCESS or ERROR. Unexpected failures send an email to the billing list.</span></li>
+  </ol>
+  <p class="note">A system-level run loops over every flagged cycle, oldest first, each in its own try/catch. The result lists successful and failed dates and maps to <b>200</b> (all succeeded), <b>206</b> (partial) or <b>500</b> (all failed); bad input gets <b>400</b>. The reset makes no external calls: tax is called again only when the batch recomputes.<span class="mine">result contract · b21683a</span></p>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Stage by stage</h2>
+    <p>Evidence tags: <span class="ev">[code]</span> seen in source · <span class="ev">[diagram]</span> from the MBS data-flow diagram · <span class="ev">[inference]</span> consistent with both; say "my understanding is…".</p>
+  </div>
+  <div class="cards">
+    <article class="card">
+      <div class="hd"><span class="n">0</span><h3>Select customers</h3></div>
+      <dl>
+        <dt>Reads</dt><dd><code>BILLPULL_DETAIL</code> (cycle with RUN=N, REL=Y and the run date reached), <code>BILL_CONTROL</code> (COMPLETE=N, TYPE A or N), <code>CUSTOMER_DETAIL</code> (bill cycle day, status).</dd>
+        <dt>Writes</dt><dd>Nothing. It builds the customer list for (system, date).</dd>
+        <dt>Control</dt><dd>In the GUI, agents set a customer to Approve (A), Hold (H) or Reject (W), or delete them. Adding a customer sets COMPLETE=N and moves pending payments and adjustments onto the cycle.</dd>
+      </dl>
+      <p class="say">BILLPULL_DETAIL decides whether the cycle runs; BILL_CONTROL decides who gets billed in it.</p>
+      <span class="ev">[code] batch customer query, BillControlServiceImpl</span>
+    </article>
+    <article class="card">
+      <div class="hd"><span class="n">1</span><h3>Usage rating</h3></div>
+      <dl>
+        <dt>Reads</dt><dd>Unprocessed <code>CURR_USG</code> in the customer's usage window; <code>PRODUCT_SERV_RATE</code>, <code>PRODUCT_SERV_CAT</code>, <code>PRODUCT_SERV_DET</code>; one-time charges in <code>RATE_BILL_SERVICE_OCC</code>. Usage arrives from source systems via <code>CURR_USG_RAW</code>.</dd>
+        <dt>Writes</dt><dd><code>BILL_COMPUTE</code> (+ detail) = quantity × rate per product code; marks usage rows processed.</dd>
+        <dt>Flag</dt><dd><code>RATING_HOLD = Y</code></dd>
+      </dl>
+      <p class="say">The processed indicator stops usage being rated twice. Rerun flips it back on purpose.</p>
+      <span class="ev">[diagram] tables and formula · [code] usage indicator revert</span>
+    </article>
+    <article class="card">
+      <div class="hd"><span class="n">2</span><h3>Billing</h3></div>
+      <dl>
+        <dt>Reads</dt><dd><code>BILL_COMPUTE</code>; <code>BILL_PAYMENT</code> (from the EPWF payment system, the BRIM feed and GUI entry); <code>BILL_ADJUSTMENTS</code> typed by <code>ADJUSTMENT_PHRASE_CODE</code>; amounts payable on approved <code>EXPENSE_VOUCHER</code>s.</dd>
+        <dt>Writes</dt><dd><code>BILL_BALHISTORY</code> (balance due); auto-generated affiliate APAY payments.</dd>
+        <dt>Flag</dt><dd><code>BILLING_HOLD = Y</code>. A hold sets it to 'H' with COMPLETE=N instead.</dd>
+      </dl>
+      <p class="say">Balance due = charges − payments ± adjustments, kept as history per invoice.</p>
+      <span class="ev">[diagram] balance inputs · [code] billing flag updates</span>
+    </article>
+    <article class="card">
+      <div class="hd"><span class="n">3</span><h3>Taxing</h3></div>
+      <dl>
+        <dt>Reads</dt><dd>Computed charges plus each product's service address and zip; <code>TAX_RATE</code> reference.</dd>
+        <dt>Calls</dt><dd>External CGS tax API (OAuth2 client credentials, XML response parsed with XXE protection).</dd>
+        <dt>Writes</dt><dd><code>TAX_COMPUTE</code> (+ detail), interstate and intrastate.</dd>
+        <dt>Flag</dt><dd><code>TAXING_HOLD = Y</code></dd>
+      </dl>
+      <p class="say">If the tax API is down, the customer doesn't complete and never gets formatted. A late bill, never a wrong one.</p>
+      <span class="ev">[diagram] address → API → tax · [inference] failure behavior</span>
+    </article>
+    <article class="card">
+      <div class="hd"><span class="n">4</span><h3>Formatting</h3></div>
+      <dl>
+        <dt>Gate</dt><dd>Customer COMPLETE=Y, RATING_HOLD=Y, BILLING_HOLD=Y; cycle RUN=Y, REL=Y, RERUN=N, MEDIA ≠ P.</dd>
+        <dt>Reads</dt><dd><code>BILL_COMPUTE</code>, <code>EXPENSE_COMPUTE</code>, <code>TAX_COMPUTE</code>, <code>BILL_BALHISTORY</code>, <code>BILL_INVOICE_VERBAGE</code>, <code>MARKET_MESSAGE</code>.</dd>
+        <dt>Writes</dt><dd>PDF invoice; <code>BILL_INV_FILE</code> with total current charges, taxes and expenses.</dd>
+        <dt>Flag</dt><dd><code>FORMATTING_HOLD = Y</code> <span class="ev">[inference]</span></dd>
+      </dl>
+      <p class="say">The invoice row is a snapshot of totals. That's why rerun deletes it and regenerates it.</p>
+      <span class="ev">[code] formatting eligibility queries · [diagram] BILL_INV_FILE</span>
+    </article>
+    <article class="card">
+      <div class="hd"><span class="n">5</span><h3>Review &amp; release</h3></div>
+      <dl>
+        <dt>Who</dt><dd>Billing agents in the GUI (Bill Preview, Bill Compare, Bill Process tab).</dd>
+        <dt>Release</dt><dd><code>MEDIA_INDR = Y</code>: invoices go to delivery. The same row also carries journal and EDW release flags for downstream finance.</dd>
+        <dt>Rerun</dt><dd><code>RERUN_INDR = Y</code> for the chosen systems and date, then the API rerun endpoints do the reset.</dd>
+      </dl>
+      <p class="say">The human checkpoint is deliberate. Revenue data plus externally sourced tax means someone verifies before release.</p>
+      <span class="ev">[code] GUI rerun endpoints · [inference] downstream order</span>
+    </article>
+    <article class="card">
+      <div class="hd"><span class="n">↳</span><h3>Side track: expenses and approval</h3></div>
+      <dl>
+        <dt>Reads</dt><dd><code>EXPENSE_BILL_SERVICE_OCC</code> (from source systems or the GUI), <code>EXPENSE_SERV_RATE</code>.</dd>
+        <dt>Writes</dt><dd><code>EXPENSE_COMPUTE</code> (+ detail), then an <code>EXPENSE_VOUCHER</code>.</dd>
+        <dt>Approval</dt><dd>Walk up the MNET manager hierarchy until a user's <code>MBS_APPROVAL_LIMIT</code> ≥ the voucher amount; store the approver in <code>ASSIGN_DETAILS</code>. Delegations are respected.</dd>
+      </dl>
+      <p class="say">A financial control: vouchers above your limit route to someone with authority.</p>
+      <span class="ev">[diagram] voucher flow · [code] approval service, rerun cleanup</span>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>Table index</h2>
+    <p>Who writes each table, who reads it, and what Bill ReRun does to it.</p>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Table</th><th>Holds</th><th>Written by</th><th>Read by</th><th>On rerun</th></tr></thead>
+      <tbody>
+        <tr><td>BILLPULL_DETAIL</td><td>Cycle state per (system, date): RUN, REL, MEDIA, RERUN, journal and EDW release</td><td>Cycle setup, batch, GUI flags</td><td>Every stage gate, GUI</td><td class="rr-reset">RUN=N, REL=Y, RERUN=N (last)</td></tr>
+        <tr><td>BILL_CONTROL</td><td>Per customer per cycle: COMPLETE, TYPE (A/H/W/N), four stage flags</td><td>GUI bill control, each stage</td><td>Stage 0, formatting gate</td><td class="rr-reset">All flags → N</td></tr>
+        <tr><td>CUSTOMER_DETAIL</td><td>Customer master: bill cycle day, status, addresses</td><td>Customer billing API</td><td>Stages 0 and 3, rerun usage window</td><td>—</td></tr>
+        <tr><td>CURR_USG</td><td>Usage records + processed indicator</td><td>Load from CURR_USG_RAW; rating marks processed</td><td>Rating</td><td class="rr-reset">Processed → unprocessed</td></tr>
+        <tr><td>PRODUCT_SERV_RATE / _CAT / _DET</td><td>Rates and product reference</td><td>Reference data</td><td>Rating</td><td>—</td></tr>
+        <tr><td>RATE_BILL_SERVICE_OCC</td><td>One-time charges rated with product rates</td><td>Source systems, GUI</td><td>Rating</td><td>—</td></tr>
+        <tr><td>BILL_COMPUTE (+DETAIL)</td><td>Rated charges</td><td>Rating</td><td>Billing, taxing, formatting, review</td><td class="rr-del">Deleted</td></tr>
+        <tr><td>EXPENSE_BILL_SERVICE_OCC, EXPENSE_SERV_RATE</td><td>Expense charges and rates</td><td>Source systems, GUI</td><td>Expense rating</td><td>—</td></tr>
+        <tr><td>EXPENSE_COMPUTE (+DETAIL)</td><td>Computed expenses</td><td>Expense rating</td><td>Formatting</td><td class="rr-del">Deleted</td></tr>
+        <tr><td>EXPENSE_VOUCHER</td><td>Voucher per expense invoice</td><td>Expense track</td><td>Approval, billing</td><td class="rr-del">Deleted</td></tr>
+        <tr><td>ASSIGN_DETAILS</td><td>Assigned approver per voucher</td><td>Approval</td><td>GUI approvals</td><td class="rr-del">Deleted (the cycle's vouchers)</td></tr>
+        <tr><td>MBS_APPROVAL_LIMIT</td><td>Approval limit by job grade</td><td>Reference data</td><td>Approval</td><td>—</td></tr>
+        <tr><td>BILL_PAYMENT</td><td>Payments (EPWF, BRIM feed, GUI) + auto affiliate APAY</td><td>Payment posting, billing</td><td>Billing</td><td class="rr-reset">Applied ones reset; APAYs deleted</td></tr>
+        <tr><td>BILL_ADJUSTMENTS</td><td>Adjustments by phrase code</td><td>GUI, feeds</td><td>Billing</td><td class="rr-reset">Applied ones reset</td></tr>
+        <tr><td>BILL_BALHISTORY</td><td>Balance per invoice over time</td><td>Billing, payment posting</td><td>Formatting</td><td>—</td></tr>
+        <tr><td>TAX_COMPUTE (+DETAIL)</td><td>Tax per line, inter/intrastate</td><td>Taxing</td><td>Formatting, review, BRIM tax feed</td><td class="rr-del">Deleted</td></tr>
+        <tr><td>BILL_INV_FILE</td><td>Invoice record with snapshot totals</td><td>Formatting</td><td>Review, BRIM outbound</td><td class="rr-del">Deleted</td></tr>
+        <tr><td>BILL_INVOICE_VERBAGE, MARKET_MESSAGE, MBS_APP_CONFIG</td><td>Invoice wording, customer messages, config such as alert email lists</td><td>Reference data</td><td>Formatting, alerts</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>Built from the MBS source extracts (rerun service, repositories, entities), the MBS data-flow diagram and the HLD notes in the InterviewPrepOne repository. Where they disagreed, the code wins. Commit IDs mark your own changes.</footer>
+</div>
